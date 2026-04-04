@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restfy — The Free, Open-Source Postman Alternative</title>
+<meta name="description" content="Restfy is a fast, beautiful, open-source API client for macOS. Send HTTP requests, organize collections, manage environments, and test APIs — all for free.">
+<meta property="og:title" content="Restfy — Free Postman Alternative">
+<meta property="og:description" content="A fast, beautiful, open-source API client for macOS. No account required. No limits.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mbonyeemma.github.io/restfy/">
+<link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1c1c1c;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --text-secondary: #888;
+    --accent: #ef5c35;
+    --accent-light: #ff7a55;
+    --accent-glow: rgba(239, 92, 53, 0.15);
+    --green: #3dd68c;
+    --blue: #4da6ff;
+    --purple: #a78bfa;
+    --yellow: #f6c90e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .nav-logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+  }
+
+  .nav-logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--text); }
+
+  .nav-cta {
+    padding: 8px 20px;
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-radius: 8px;
+    font-weight: 600 !important;
+    transition: background 0.2s !important;
+  }
+
+  .nav-cta:hover { background: var(--accent-light) !important; }
+
+  .github-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 40px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(239,92,53,0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  .hero-badge-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .hero h1 {
+    font-size: clamp(48px, 7vw, 80px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+    max-width: 900px;
+  }
+
+  .hero h1 .accent { color: var(--accent); }
+
+  .hero-sub {
+    font-size: clamp(16px, 2vw, 20px);
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin-bottom: 48px;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(239,92,53,0.3);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-light);
+    box-shadow: 0 6px 30px rgba(239,92,53,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent);
+    background: var(--surface-2);
+    transform: translateY(-1px);
+  }
+
+  .btn-icon { font-size: 20px; }
+
+  .hero-meta {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* ── APP PREVIEW ── */
+  .app-preview {
+    padding: 0 40px 100px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-frame {
+    width: 100%;
+    max-width: 1100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+  }
+
+  .app-frame-titlebar {
+    height: 40px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green { background: #28c840; }
+
+  .app-frame-content {
+    display: flex;
+    height: 500px;
+  }
+
+  .app-sidebar-mock {
+    width: 220px;
+    background: #222;
+    border-right: 1px solid var(--border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mock-collection {
+    padding: 8px 10px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mock-collection:first-child { border: 1px solid var(--border); }
+
+  .mock-req {
+    padding: 6px 10px 6px 28px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 8px;
+    border-radius: 4px;
+  }
+
+  .mock-req:hover { background: #2a2a2a; }
+  .mock-method { font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 9px; }
+  .m-get { color: var(--green); }
+  .m-post { color: var(--yellow); }
+  .m-del { color: #f56565; }
+  .m-put { color: var(--blue); }
+
+  .app-main-mock {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mock-urlbar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .mock-method-select {
+    padding: 6px 10px;
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .mock-url {
+    flex: 1;
+    padding: 6px 10px;
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .mock-send {
+    padding: 6px 16px;
+    background: var(--accent);
+    border-radius: 6px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .mock-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+  }
+
+  .mock-tab {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+  }
+
+  .mock-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .mock-body {
+    flex: 1;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    overflow: hidden;
+  }
+
+  .mock-body .k { color: #9ecbff; }
+  .mock-body .s { color: #a5d6ff; }
+  .mock-body .n { color: #f8c555; }
+  .mock-body .b { color: #ff7b72; }
+
+  /* ── FEATURES ── */
+  .features {
+    padding: 100px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(239,92,53,0.2);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  .section-sub {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin-bottom: 60px;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    transition: all 0.3s;
+  }
+
+  .feature-card:hover {
+    border-color: rgba(239,92,53,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+
+  .feature-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--accent-glow);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  .feature-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  /* ── COMPARISON ── */
+  .comparison {
+    padding: 100px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 40px;
+  }
+
+  .comparison-table th,
+  .comparison-table td {
+    padding: 14px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+
+  .comparison-table th {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+
+  .comparison-table th:not(:first-child) { text-align: center; }
+  .comparison-table td:not(:first-child) { text-align: center; font-size: 18px; }
+
+  .comparison-table tr:hover td { background: var(--surface); }
+
+  .check { color: var(--green); }
+  .cross { color: #555; }
+
+  /* ── CTA ── */
+  .cta {
+    padding: 120px 40px;
+    text-align: center;
+    position: relative;
+  }
+
+  .cta::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(239,92,53,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .cta h2 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+  }
+
+  .cta p {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 24px;
+  }
+
+  .footer-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover { color: var(--text); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    nav { padding: 12px 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 100px 20px 60px; }
+    .hero-actions { flex-direction: column; align-items: center; }
+    .app-preview { padding: 0 20px 60px; }
+    .app-sidebar-mock { display: none; }
+    .app-frame-content { height: 350px; }
+    .features { padding: 60px 20px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .comparison { padding: 60px 20px; }
+    .comparison-table { font-size: 12px; }
+    .comparison-table th, .comparison-table td { padding: 10px 12px; }
+    .cta { padding: 80px 20px; }
+    footer { flex-direction: column; gap: 16px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">R</div>
+    <span class="nav-logo-text">Restfy</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#compare">Compare</a>
+    <a href="https://github.com/mbonyeemma/restfy" class="github-link">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+    <a href="#download" class="nav-cta">Download</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="hero-badge-dot"></span>
+    Open Source &amp; Free Forever
+  </div>
+  <h1>The API Client<br>You <span class="accent">Deserve</span></h1>
+  <p class="hero-sub">
+    Restfy is a fast, beautiful, open-source API client for macOS. Send requests, manage collections, test APIs — no account, no limits, no subscriptions.
+  </p>
+  <div class="hero-actions" id="download">
+    <a href="https://github.com/mbonyeemma/restfy/releases/latest" class="btn btn-primary">
+      <span class="btn-icon">&#63743;</span>
+      Download for macOS
+    </a>
+    <a href="https://github.com/mbonyeemma/restfy" class="btn btn-secondary">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+  <div class="hero-meta">
+    <span>&#9889; Lightweight &amp; Fast</span>
+    <span>&#128274; No Account Required</span>
+    <span>&#128230; Postman Import</span>
+    <span>&#127752; Light &amp; Dark Mode</span>
+  </div>
+</section>
+
+<!-- APP PREVIEW -->
+<section class="app-preview">
+  <div class="app-frame">
+    <div class="app-frame-titlebar">
+      <div class="dot dot-red"></div>
+      <div class="dot dot-yellow"></div>
+      <div class="dot dot-green"></div>
+      <div style="flex:1"></div>
+      <span style="font-size:12px;color:#888;font-weight:600">Restfy</span>
+      <div style="flex:1"></div>
+    </div>
+    <div class="app-frame-content">
+      <div class="app-sidebar-mock">
+        <div class="mock-collection">&#128230; Payment API</div>
+        <div class="mock-req"><span class="mock-method m-post">POST</span> validate-request</div>
+        <div class="mock-req"><span class="mock-method m-post">POST</span> direct-payout</div>
+        <div class="mock-req"><span class="mock-method m-get">GET</span> transactions</div>
+        <div class="mock-req"><span class="mock-method m-get">GET</span> balance</div>
+        <div style="height:12px"></div>
+        <div class="mock-collection">&#128230; Users API</div>
+        <div class="mock-req"><span class="mock-method m-get">GET</span> list users</div>
+        <div class="mock-req"><span class="mock-method m-post">POST</span> create user</div>
+        <div class="mock-req"><span class="mock-method m-put">PUT</span> update user</div>
+        <div class="mock-req"><span class="mock-method m-del">DEL</span> delete user</div>
+      </div>
+      <div class="app-main-mock">
+        <div class="mock-urlbar">
+          <div class="mock-method-select">POST</div>
+          <div class="mock-url">{{URL}}v1/payment/validate-request</div>
+          <div class="mock-send">&#9654; Send</div>
+        </div>
+        <div class="mock-tabs">
+          <div class="mock-tab">Params</div>
+          <div class="mock-tab">Headers</div>
+          <div class="mock-tab active">Body</div>
+          <div class="mock-tab">Auth</div>
+          <div class="mock-tab">Scripts</div>
+        </div>
+        <div class="mock-body">
+<span>{</span>
+  <span class="k">"reference_id"</span>: <span class="s">"abc12345678990"</span>,
+  <span class="k">"amount"</span>: <span class="n">1000</span>,
+  <span class="k">"trans_type"</span>: <span class="s">"PUSH"</span>,
+  <span class="k">"currency"</span>: <span class="s">"UGX"</span>,
+  <span class="k">"product_id"</span>: <span class="s">"10011"</span>,
+  <span class="k">"account_number"</span>: <span class="s">"256772877413"</span>
+<span>}</span>
+
+<span style="color:var(--green);font-weight:600;">200 OK</span> <span style="color:#555">· 346 ms · 433 B</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-label">&#9889; Features</div>
+  <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+  <p class="section-sub">All the power of premium API clients, without the price tag or account walls.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">&#128230;</div>
+      <h3>Collections &amp; Folders</h3>
+      <p>Organize requests into nested collections and folders. Drag, rename, duplicate — just like Postman.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#127760;</div>
+      <h3>Environments &amp; Variables</h3>
+      <p>Create environments with {{variables}}. Switch between dev, staging, and production in one click.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128274;</div>
+      <h3>All Auth Types</h3>
+      <p>Bearer, Basic, JWT, OAuth 2.0, AWS Signature, Hawk, NTLM, Digest, API Key, EdgeGrid, ASAP — they're all here.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#127912;</div>
+      <h3>Syntax Highlighting</h3>
+      <p>Beautiful JSON/XML syntax coloring with line numbers in both request body and response view.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128203;</div>
+      <h3>Pre-request &amp; Test Scripts</h3>
+      <p>Write JavaScript scripts that run before or after requests. Assert response data with pm.test() and pm.expect().</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128196;</div>
+      <h3>Code Generation</h3>
+      <p>Generate code snippets in JavaScript (Fetch/Axios), Python, Go, PHP, and cURL from any request.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128257;</div>
+      <h3>Import &amp; Export</h3>
+      <p>Import Postman collections (v2/v2.1) with full folder support. Export back to Postman JSON format.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#127752;</div>
+      <h3>Light &amp; Dark Mode</h3>
+      <p>Gorgeous light and dark themes that persist across sessions. Easy toggle right from the titlebar.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#9889;</div>
+      <h3>Lightweight &amp; Fast</h3>
+      <p>No bloat, no Chromium-heavy frameworks. Starts instantly, uses minimal memory, feels native on macOS.</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="comparison" id="compare">
+  <div class="section-label">&#128200; Comparison</div>
+  <h2 class="section-title">Restfy vs Postman</h2>
+  <p class="section-sub">All the features. None of the baggage.</p>
+
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Restfy</th>
+        <th>Postman (Free)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Send HTTP Requests</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>Collections &amp; Folders</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>Environments</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>Pre-request / Test Scripts</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>All Auth Types</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>Code Generation</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>Import / Export</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+      <tr><td>No Account Required</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Unlimited Collections</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Fully Offline</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Open Source</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>No Telemetry</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Free Forever</td><td class="check">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Price</td><td style="color:var(--green);font-weight:700;">$0</td><td style="color:var(--text-secondary);">$0–$49/mo</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <h2>Ready to switch?</h2>
+  <p>Download Restfy for macOS. It's free, open source, and yours forever.</p>
+  <div class="hero-actions">
+    <a href="https://github.com/mbonyeemma/restfy/releases/latest" class="btn btn-primary">
+      <span class="btn-icon">&#63743;</span>
+      Download for macOS
+    </a>
+    <a href="https://github.com/mbonyeemma/restfy" class="btn btn-secondary">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Star on GitHub
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    <div class="nav-logo-icon" style="width:24px;height:24px;font-size:11px;border-radius:5px;">R</div>
+    <span>&copy; 2026 Restfy. Open source under MIT License.</span>
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/mbonyeemma/restfy">GitHub</a>
+    <a href="https://github.com/mbonyeemma/restfy/releases">Releases</a>
+    <a href="https://github.com/mbonyeemma/restfy/issues">Report Issue</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -159,6 +159,7 @@ function loadTabState(id) {
   document.getElementById('methodSelect').value = t.method || 'GET';
   document.getElementById('urlInput').value = t.url || '';
   updateMethodColor();
+  updateUrlHighlight();
   renderKvEditor('paramsEditor', d.params, 'params');
   renderKvEditor('headersEditor', d.headers, 'headers');
   renderInheritedHeaders();
@@ -193,6 +194,7 @@ function renderTabs() {
     const div = document.createElement('div');
     div.className = 'tab' + (t.id === activeTabId ? ' active' : '');
     if (pinned) div.classList.add('pinned');
+    if (d && d.dirty) div.classList.add('unsaved');
     div.onclick = () => setActiveTab(t.id);
     div.innerHTML = `
       <span class="tab-method m-${t.method}">${t.method}</span>
@@ -312,12 +314,14 @@ function renderTreeNode(node, depth, collectionId, filter) {
   header.innerHTML = `
     <span class="tree-drag-handle" title="Drag to reorder">&#8942;&#8942;</span>
     <span class="tree-toggle">${isOpen ? '&#9660;' : '&#9654;'}</span>
-    <span class="tree-folder-icon">${isCollection ? '&#128230;' : '&#128193;'}</span>
     <span class="tree-label">${escHtml(node.name)}</span>
     <span class="tree-count">${count}</span>
     <button class="tree-add-btn" onclick="event.stopPropagation(); quickAddRequest('${node.id}')" title="Add request">+</button>
   `;
-  header.onclick = () => toggleFolder(node.id);
+  header.onclick = () => {
+    toggleFolder(node.id);
+    if (isCollection) openCollectionDocs(node.id);
+  };
   header.oncontextmenu = (e) => {
     e.preventDefault();
     showNodeContextMenu(e, node.id, node.type, collectionId);
@@ -359,13 +363,286 @@ function openRequest(nodeId) {
   newTab(node, nodeId);
 }
 
+let _activeDocsColId = null;
+let _docsFullDocsVisible = false;
+
+function openCollectionDocs(colId) {
+  const col = findNodeInAll(colId);
+  if (!col || col.type !== 'collection') return;
+  _activeDocsColId = colId;
+  _docsFullDocsVisible = false;
+  if (activeTabId) saveCurrentTabState();
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('requestWorkspace').style.display = 'none';
+  document.getElementById('folderEditor').style.display = 'none';
+  document.getElementById('collectionDocs').style.display = 'flex';
+  switchCDocsTab('overview');
+  renderCollectionDocs(col);
+}
+
+function switchCDocsTab(tab) {
+  document.querySelectorAll('.cdocs-tab').forEach(t => t.classList.toggle('active', t.dataset.cdocsTab === tab));
+  document.querySelectorAll('.cdocs-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('cdocsPanel' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (panel) panel.classList.add('active');
+
+  if (tab !== 'overview') {
+    const col = findNodeInAll(_activeDocsColId);
+    if (!col) return;
+    if (tab === 'authorization') _renderCDocsAuth(col);
+    else if (tab === 'scripts') _renderCDocsScripts(col);
+    else if (tab === 'variables') _renderCDocsVars(col);
+    else if (tab === 'runs') _renderCDocsRuns(col);
+  }
+}
+
+function renderCollectionDocs(col) {
+  document.getElementById('cdocsTopbarName').textContent = col.name;
+  document.getElementById('cdocsOverviewTitle').textContent = col.name;
+
+  const reqCount = countRequests(col);
+  const folderCount = _countFolders(col);
+  const metaEl = document.getElementById('cdocsOverviewMeta');
+  metaEl.innerHTML = '';
+  const items = [
+    { icon: '<svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>', text: reqCount + ' request' + (reqCount !== 1 ? 's' : '') },
+    { icon: '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>', text: folderCount + ' folder' + (folderCount !== 1 ? 's' : '') },
+  ];
+  items.forEach(it => {
+    const span = document.createElement('span');
+    span.className = 'cdocs-overview-meta-item';
+    span.innerHTML = it.icon + ' ' + it.text;
+    metaEl.appendChild(span);
+  });
+
+  const descEl = document.getElementById('cdocsDesc');
+  descEl.value = col.description || '';
+  descEl.oninput = function() { col.description = this.value; saveState(); };
+
+  const authTab = document.querySelector('[data-cdocs-tab="authorization"]');
+  if (authTab) {
+    const hasAuth = col.auth && col.auth.type && col.auth.type !== 'none';
+    const dot = authTab.querySelector('.cdocs-tab-dot');
+    if (hasAuth && !dot) { authTab.innerHTML += '<span class="cdocs-tab-dot"></span>'; }
+    else if (!hasAuth && dot) { dot.remove(); }
+  }
+
+  const viewLink = document.getElementById('cdocsViewDocsLink');
+  viewLink.onclick = (e) => { e.preventDefault(); _toggleFullDocs(col); };
+
+  document.getElementById('cdocsPublishBtn').onclick = () => shareCollection(col.id);
+  document.getElementById('cdocsCopyLinkBtn').onclick = () => {
+    const data = JSON.stringify(deepClone(col), null, 2);
+    navigator.clipboard.writeText(data).then(() => showNotif('Collection JSON copied to clipboard', 'success'));
+  };
+  document.getElementById('cdocsRunCollectionBtn').onclick = () => runCollection(col.id);
+
+  const fullDocs = document.getElementById('cdocsFullDocs');
+  fullDocs.style.display = _docsFullDocsVisible ? 'block' : 'none';
+  if (_docsFullDocsVisible) _buildFullDocs(col, fullDocs);
+}
+
+function _countFolders(node) {
+  let c = 0;
+  if (node.children) node.children.forEach(ch => {
+    if (ch.type === 'folder') { c++; c += _countFolders(ch); }
+  });
+  return c;
+}
+
+function _toggleFullDocs(col) {
+  _docsFullDocsVisible = !_docsFullDocsVisible;
+  const el = document.getElementById('cdocsFullDocs');
+  const link = document.getElementById('cdocsViewDocsLink');
+  if (_docsFullDocsVisible) {
+    el.style.display = 'block';
+    _buildFullDocs(col, el);
+    link.innerHTML = 'Hide documentation &uarr;';
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    el.style.display = 'none';
+    link.innerHTML = 'View complete documentation &rarr;';
+  }
+}
+
+function _buildFullDocs(col, container) {
+  container.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'cdocs-full-docs-header';
+  header.innerHTML = '<div class="cdocs-full-docs-title">' + escHtml(col.name) + '</div>';
+  container.appendChild(header);
+
+  if (col.description) {
+    const descP = document.createElement('p');
+    descP.style.cssText = 'font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 20px;white-space:pre-wrap';
+    descP.textContent = col.description;
+    container.appendChild(descP);
+  }
+
+  if (col.auth && col.auth.type && col.auth.type !== 'none') {
+    _renderDocAuthRow(container, col.auth, col.name);
+  }
+
+  if (!col.children || col.children.length === 0) {
+    container.innerHTML += '<div style="text-align:center;color:var(--text-dim);padding:32px;font-size:13px">No requests in this collection yet.</div>';
+    return;
+  }
+
+  const topReqs = col.children.filter(c => c.type === 'request');
+  topReqs.forEach(req => _renderDocRequestCard(container, req));
+  col.children.filter(c => c.type === 'folder').forEach(f => _renderDocFolderSection(container, f, col));
+}
+
+function _renderDocFolderSection(container, folder, parentCol) {
+  const section = document.createElement('div');
+  section.className = 'cdocs-folder-section';
+
+  const heading = document.createElement('div');
+  heading.className = 'cdocs-folder-heading';
+  heading.textContent = folder.name;
+  section.appendChild(heading);
+
+  if (folder.description) {
+    const desc = document.createElement('div');
+    desc.className = 'cdocs-folder-desc';
+    desc.textContent = folder.description;
+    section.appendChild(desc);
+  }
+
+  const effectiveAuth = folder.auth && folder.auth.type && folder.auth.type !== 'none' ? folder.auth : null;
+  if (effectiveAuth) {
+    _renderDocAuthRow(section, effectiveAuth, null);
+  } else if (parentCol.auth && parentCol.auth.type && parentCol.auth.type !== 'none') {
+    const note = document.createElement('div');
+    note.className = 'cdocs-folder-auth-row';
+    note.innerHTML = '<strong>Authorization</strong> <span>' + escHtml(_authTypeLabel(parentCol.auth.type)) + '</span> <span style="margin-left:auto;font-style:italic">inherited from collection ' + escHtml(parentCol.name) + '</span>';
+    section.appendChild(note);
+  }
+
+  const requests = folder.children ? folder.children.filter(c => c.type === 'request') : [];
+  requests.forEach(req => _renderDocRequestCard(section, req));
+
+  container.appendChild(section);
+
+  if (folder.children) {
+    folder.children.filter(c => c.type === 'folder').forEach(sub => _renderDocFolderSection(container, sub, parentCol));
+  }
+}
+
+function _renderDocRequestCard(container, req) {
+  const card = document.createElement('div');
+  card.className = 'cdocs-req-card';
+
+  const header = document.createElement('div');
+  header.className = 'cdocs-req-card-header';
+  header.onclick = () => openRequest(req.id);
+
+  const badge = document.createElement('span');
+  badge.className = 'cdocs-req-card-method bg-' + (req.method || 'GET');
+  badge.textContent = req.method || 'GET';
+
+  const name = document.createElement('span');
+  name.className = 'cdocs-req-card-name';
+  name.textContent = req.name || 'Untitled';
+
+  const openLink = document.createElement('span');
+  openLink.className = 'cdocs-req-card-open';
+  openLink.textContent = 'Open request \u2192';
+
+  header.appendChild(badge);
+  header.appendChild(name);
+  header.appendChild(openLink);
+  card.appendChild(header);
+
+  if (req.url) {
+    const urlWrap = document.createElement('div');
+    urlWrap.className = 'cdocs-req-card-url';
+    urlWrap.innerHTML = '<code>' + escHtml(req.url) + '</code>';
+    card.appendChild(urlWrap);
+  }
+
+  container.appendChild(card);
+}
+
+function _renderDocAuthRow(container, auth, sourceName) {
+  const row = document.createElement('div');
+  row.className = 'cdocs-folder-auth-row';
+  let html = '<strong>Authorization</strong> <span>' + escHtml(_authTypeLabel(auth.type)) + '</span>';
+  if (auth.type === 'bearer') html += ' &mdash; Token: <code style="font-size:11px;background:var(--bg-mid);padding:2px 6px;border-radius:3px">&lt;token&gt;</code>';
+  if (auth.type === 'basic') html += ' &mdash; Username: ' + escHtml(auth.username || '');
+  if (auth.type === 'apikey') html += ' &mdash; ' + escHtml(auth.key || 'X-API-Key') + ': &lt;value&gt;';
+  row.innerHTML = html;
+  container.appendChild(row);
+}
+
+function _authTypeLabel(t) {
+  if (t === 'bearer') return 'Bearer Token';
+  if (t === 'basic') return 'Basic Auth';
+  if (t === 'apikey') return 'API Key';
+  return t || 'No Auth';
+}
+
+function _renderCDocsAuth(col) {
+  const el = document.getElementById('cdocsAuthContent');
+  const auth = col.auth || { type: 'none' };
+  if (!auth.type || auth.type === 'none') {
+    el.innerHTML = '<div class="cdocs-auth-header">Authorization</div><div class="cdocs-auth-type">No Auth</div><div class="cdocs-auth-note">This collection does not have authorization configured. Individual requests may have their own authorization.</div><div style="margin-top:16px"><button class="btn-secondary" onclick="openFolderEditor(\'' + col.id + '\')">Configure Authorization</button></div>';
+    return;
+  }
+  let tableRows = '';
+  if (auth.type === 'bearer') {
+    tableRows = '<tr><td>Type</td><td>Bearer Token</td></tr><tr><td>Token</td><td>' + escHtml(auth.token || '<token>') + '</td></tr>';
+  } else if (auth.type === 'basic') {
+    tableRows = '<tr><td>Type</td><td>Basic Auth</td></tr><tr><td>Username</td><td>' + escHtml(auth.username || '') + '</td></tr><tr><td>Password</td><td>••••••</td></tr>';
+  } else if (auth.type === 'apikey') {
+    tableRows = '<tr><td>Type</td><td>API Key</td></tr><tr><td>Header</td><td>' + escHtml(auth.key || 'X-API-Key') + '</td></tr><tr><td>Value</td><td>' + escHtml(auth.value || '') + '</td></tr>';
+  }
+  el.innerHTML = '<div class="cdocs-auth-header">Authorization</div><div class="cdocs-auth-type">' + _authTypeLabel(auth.type) + '</div><table class="cdocs-auth-table">' + tableRows + '</table><div class="cdocs-auth-note">This authorization is inherited by all requests in the collection unless overridden.</div><div style="margin-top:16px"><button class="btn-secondary" onclick="openFolderEditor(\'' + col.id + '\')">Edit Authorization</button></div>';
+}
+
+function _renderCDocsScripts(col) {
+  document.getElementById('cdocsPreScript').value = col.preRequestScript || '';
+  document.getElementById('cdocsTestScript').value = col.testScript || '';
+  document.getElementById('cdocsSaveScriptsBtn').onclick = () => {
+    col.preRequestScript = document.getElementById('cdocsPreScript').value;
+    col.testScript = document.getElementById('cdocsTestScript').value;
+    saveState();
+    showNotif('Scripts saved', 'success');
+  };
+}
+
+function _renderCDocsVars(col) {
+  renderKvEditor('cdocsVarsEditor', col.variables || [], 'cdocsVars');
+  document.getElementById('cdocsSaveVarsBtn').onclick = () => {
+    const editor = document.getElementById('cdocsVarsEditor');
+    const rows = [];
+    editor.querySelectorAll('.kv-row').forEach(row => {
+      const inputs = row.querySelectorAll('.kv-input');
+      const checkbox = row.querySelector('.kv-enabled');
+      if (inputs.length >= 2) {
+        rows.push({ key: inputs[0].value, value: inputs[1].value, enabled: checkbox ? checkbox.checked : true });
+      }
+    });
+    col.variables = rows;
+    saveState();
+    showNotif('Variables saved', 'success');
+  };
+}
+
+function _renderCDocsRuns(col) {
+  document.getElementById('cdocsRunCollectionBtn').onclick = () => runCollection(col.id);
+}
+
 function openFolderEditor(nodeId) {
   const node = findNodeInAll(nodeId);
   if (!node) return;
+  _activeDocsColId = null;
   editingNodeId = nodeId;
   if (activeTabId) saveCurrentTabState();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('requestWorkspace').style.display = 'none';
+  document.getElementById('collectionDocs').style.display = 'none';
   const fe = document.getElementById('folderEditor');
   fe.style.display = 'flex';
   renderFolderEditor(node);
@@ -457,6 +734,9 @@ function showNodeContextMenu(e, nodeId, nodeType, collectionId) {
   const menu = document.getElementById('contextMenu');
   let items = '';
   if (nodeType === 'collection' || nodeType === 'folder') {
+    if (nodeType === 'collection') {
+      items += `<div class="ctx-item" onclick="openCollectionDocs('${nodeId}'); hideContextMenu();">View Documentation</div>`;
+    }
     items += `<div class="ctx-item" onclick="quickAddRequest('${nodeId}'); hideContextMenu();">New Request</div>`;
     items += `<div class="ctx-item" onclick="addSubfolder('${nodeId}'); hideContextMenu();">New Folder</div>`;
     items += `<div class="ctx-item" onclick="openFolderEditor('${nodeId}'); hideContextMenu();">Edit Settings</div>`;
@@ -470,6 +750,7 @@ function showNodeContextMenu(e, nodeId, nodeType, collectionId) {
   items += `<div class="ctx-item" onclick="doDuplicate('${nodeId}'); hideContextMenu();">Duplicate</div>`;
   if (nodeType === 'collection') {
     items += `<div class="ctx-item" onclick="exportCollectionAsPostman('${nodeId}'); hideContextMenu();">Export as Postman JSON</div>`;
+    items += `<div class="ctx-item" onclick="shareCollection('${nodeId}'); hideContextMenu();">Share &amp; Publish Docs</div>`;
     items += `<div class="ctx-item" onclick="runCollection('${nodeId}'); hideContextMenu();">Run Collection</div>`;
   }
   items += `<div class="ctx-sep"></div>`;
@@ -537,10 +818,11 @@ function doDuplicate(nodeId) {
   showNotif('Duplicated', 'success');
 }
 
-function doDelete(nodeId) {
+async function doDelete(nodeId) {
   const node = findNodeInAll(nodeId);
   if (!node) return;
-  if (!confirm(`Delete "${node.name}"?`)) return;
+  const ok = await appConfirm('Delete item', `Delete "${node.name}"? This cannot be undone.`, { danger: true, okLabel: 'Delete' });
+  if (!ok) return;
   tabs.filter(t => t.sourceId === nodeId).forEach(t => closeTab(t.id));
   deleteNode(nodeId);
   saveState();
@@ -592,8 +874,9 @@ function renderHistoryList(filter) {
   });
 }
 
-function clearHistory() {
-  if (!confirm('Clear all history?')) return;
+async function clearHistory() {
+  const ok = await appConfirm('Clear history', 'Clear all request history? This cannot be undone.', { danger: true, okLabel: 'Clear' });
+  if (!ok) return;
   history = [];
   saveState();
   renderSidebar();
@@ -868,6 +1151,32 @@ function updateBodySize() {
 
 // ── Body Syntax Highlighting ──
 
+function highlightVarTokens(html) {
+  return html.replace(/\{\{(\w+)\}\}/g, '<span class="var-token">{{$1}}</span>');
+}
+
+function updateUrlHighlight() {
+  const input = document.getElementById('urlInput');
+  const overlay = document.getElementById('urlHighlightOverlay');
+  if (!input || !overlay) return;
+  const val = input.value;
+  if (!val || !/\{\{/.test(val)) {
+    overlay.style.display = 'none';
+    input.classList.remove('url-has-vars');
+    return;
+  }
+  overlay.style.display = 'block';
+  input.classList.add('url-has-vars');
+  overlay.innerHTML = highlightVarTokens(escHtml(val));
+  overlay.scrollLeft = input.scrollLeft;
+}
+
+function syncUrlHighlightScroll() {
+  const input = document.getElementById('urlInput');
+  const overlay = document.getElementById('urlHighlightOverlay');
+  if (input && overlay) overlay.scrollLeft = input.scrollLeft;
+}
+
 function updateBodyHighlight() {
   const ta = document.getElementById('bodyTextarea');
   const overlay = document.getElementById('bodyHighlightOverlay');
@@ -892,9 +1201,9 @@ function updateBodyHighlight() {
   ta.style.caretColor = 'var(--text-primary)';
 
   if (isJsonBody) {
-    overlay.innerHTML = syntaxHighlight(val);
+    overlay.innerHTML = highlightVarTokens(syntaxHighlight(val));
   } else {
-    overlay.innerHTML = escHtml(val);
+    overlay.innerHTML = highlightVarTokens(escHtml(val));
   }
 
   const lines = val.split('\n');
@@ -1034,7 +1343,7 @@ async function fetchOAuth2Token() {
     body.append('client_id', state.clientId);
     body.append('client_secret', state.clientSecret);
     if (state.scope) body.append('scope', state.scope);
-    const resp = await fetch(resolveVariables(state.tokenUrl), {
+    const resp = await restfyFetch(resolveVariables(state.tokenUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString()
@@ -1092,13 +1401,17 @@ function switchRespTab(name) {
 function showWorkspace() {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('folderEditor').style.display = 'none';
+  document.getElementById('collectionDocs').style.display = 'none';
   document.getElementById('requestWorkspace').style.display = 'flex';
+  _activeDocsColId = null;
 }
 
 function showEmpty() {
   document.getElementById('emptyState').style.display = 'flex';
   document.getElementById('requestWorkspace').style.display = 'none';
   document.getElementById('folderEditor').style.display = 'none';
+  document.getElementById('collectionDocs').style.display = 'none';
+  _activeDocsColId = null;
 }
 
 function updateMethodColor() {
@@ -1237,9 +1550,11 @@ function saveRequest() {
     t.sourceId = req.id;
   }
 
+  if (d) d.dirty = false;
   saveState();
   renderSidebar();
   closeSaveModal();
+  renderTabs();
   showNotif(`Saved to collection`, 'success');
 }
 
@@ -1392,15 +1707,17 @@ function addEnvironmentFromInput() {
   renderEnvSelector();
 }
 
-function renameEnv(envId) {
+async function renameEnv(envId) {
   const env = environments.find(e => e.id === envId);
   if (!env) return;
-  const name = prompt('New name:', env.name);
+  const name = await appPrompt('Rename environment', null, { placeholder: 'Environment name', defaultValue: env.name });
   if (name) { env.name = name; saveState(); renderEnvManager(); renderEnvSelector(); }
 }
 
-function deleteEnv(envId) {
-  if (!confirm('Delete this environment?')) return;
+async function deleteEnv(envId) {
+  const env = environments.find(e => e.id === envId);
+  const ok = await appConfirm('Delete environment', `Delete "${env ? env.name : 'this environment'}"? This cannot be undone.`, { danger: true, okLabel: 'Delete' });
+  if (!ok) return;
   environments = environments.filter(e => e.id !== envId);
   if (activeEnvId === envId) activeEnvId = null;
   saveState();
@@ -1438,6 +1755,62 @@ function renderEnvSelector() {
   });
   sel.value = activeEnvId && environments.some(x => x.id === activeEnvId) ? activeEnvId : '';
   hideUrlVarPopover();
+}
+
+function exportEnvironments() {
+  const data = {
+    _type: 'restfy_environments',
+    version: 1,
+    environments: deepClone(environments),
+    globalVars: deepClone(globalVars)
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'restfy-environments.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showNotif('Environments exported', 'success');
+}
+
+function importEnvironments(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const data = JSON.parse(reader.result);
+      if (data._type !== 'restfy_environments' || !Array.isArray(data.environments)) {
+        showNotif('Invalid environment file', 'error');
+        return;
+      }
+      let added = 0;
+      data.environments.forEach(env => {
+        if (!env.name || !env.variables) return;
+        const existing = environments.find(e => e.name === env.name);
+        if (!existing) {
+          env.id = genId();
+          environments.push(env);
+          added++;
+        }
+      });
+      if (data.globalVars && Array.isArray(data.globalVars)) {
+        data.globalVars.forEach(g => {
+          if (g.key && !globalVars.find(v => v.key === g.key)) {
+            globalVars.push({ key: g.key, value: g.value, enabled: g.enabled !== false });
+          }
+        });
+      }
+      saveState();
+      renderEnvManager();
+      renderEnvSelector();
+      showNotif(`Imported ${added} environment(s)`, 'success');
+    } catch (e) {
+      showNotif('Failed to parse environment file', 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // ── URL bar: hover {{variables}} → resolved value + link (Postman-style) ──
@@ -1652,5 +2025,21 @@ function setupUrlVariableHover() {
     hideUrlVarPopover();
   });
 
-  input.addEventListener('scroll', () => hideUrlVarPopover());
+  input.addEventListener('scroll', () => { hideUrlVarPopover(); syncUrlHighlightScroll(); });
+}
+
+function setupInputVarTooltips() {
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.matches('.kv-input, .auth-input, .form-input')) return;
+    const val = el.value || '';
+    el.title = /\{\{\w+\}\}/.test(val) ? resolveVariables(val) : '';
+  }, true);
+
+  document.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (!el.matches('.kv-input, .auth-input, .form-input')) return;
+    const val = el.value || '';
+    el.title = /\{\{\w+\}\}/.test(val) ? resolveVariables(val) : '';
+  }, true);
 }

@@ -170,6 +170,7 @@
   .tab:hover { background: var(--bg-light); }
   .tab.active { background: var(--bg-light); border-color: var(--border); }
   .tab.pinned::before { content: ''; position: absolute; top: 3px; left: 3px; width: 5px; height: 5px; background: var(--accent); border-radius: 50%; }
+  .tab.unsaved .tab-name::after { content: ' \u2022'; color: var(--text-dim); }
   .tab-method { font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace; min-width: 38px; }
   .tab-name { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; flex: 1; }
   .tab.active .tab-name { color: var(--text-primary); }
@@ -220,12 +221,11 @@
   .tree-collection { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 4px; }
   .tree-node { display: flex; align-items: center; gap: 6px; padding: 6px 8px; cursor: pointer; transition: background 0.1s; border-radius: 3px; min-height: 30px; }
   .tree-node:hover { background: var(--bg-mid); }
-  .tree-folder-header { background: var(--bg-mid); font-weight: 500; border-radius: 0; }
+  .tree-folder-header { background: var(--bg-mid); font-weight: 400; border-radius: 0; }
   .tree-folder-header:hover { background: var(--bg-light); }
   .tree-toggle { font-size: 8px; color: var(--text-dim); min-width: 10px; transition: transform 0.15s; }
-  .tree-folder-icon { font-size: 14px; }
   .tree-label { flex: 1; font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tree-folder-header .tree-label { color: var(--text-primary); }
+  .tree-folder-header .tree-label { color: var(--text-secondary); }
   .tree-count { font-size: 10px; color: var(--text-dim); background: var(--bg-light); padding: 1px 6px; border-radius: 10px; }
   .tree-add-btn { width: 20px; height: 20px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; border-radius: 4px; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.1s; opacity: 0; }
   .tree-folder-header:hover .tree-add-btn { opacity: 1; }
@@ -261,9 +261,13 @@
   .method-select { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; color: var(--method-get); font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 7px 10px; cursor: pointer; outline: none; min-width: 100px; transition: all 0.15s; }
   .method-select:focus { border-color: var(--accent); }
   .method-select option { color: var(--text-primary); background: var(--bg-mid); }
-  .url-input-wrap { flex: 1; min-width: 0; display: flex; align-items: stretch; }
+  .url-input-wrap { flex: 1; min-width: 0; display: flex; align-items: stretch; position: relative; }
   .url-input-wrap .url-input { width: 100%; min-width: 0; }
   .url-input { flex: 1; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; outline: none; transition: all 0.15s; }
+  .url-input.url-has-vars { color: transparent; caret-color: var(--text-primary); }
+  .url-highlight-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 7px 12px; border: 1px solid transparent; border-radius: 6px; font-size: 13px; font-family: 'JetBrains Mono', monospace; pointer-events: none; white-space: nowrap; overflow: hidden; color: var(--text-primary); display: none; line-height: normal; }
+  .var-token { color: var(--blue); }
+  [data-theme="light"] .var-token { color: var(--blue); }
   .url-input.url-input--var-hover { cursor: help; }
   .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
   .url-input::placeholder { color: var(--text-dim); font-family: 'Inter', sans-serif; }
@@ -387,7 +391,10 @@
   .send-btn { padding: 7px 20px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; display: flex; align-items: center; gap: 6px; min-width: 80px; justify-content: center; }
   .send-btn:hover { background: var(--accent-hover); }
   .send-btn:active { background: var(--accent-dark); }
-  .send-btn.loading { opacity: 0.7; cursor: not-allowed; }
+  .send-btn.loading { opacity: 1; cursor: pointer; background: var(--text-dim); }
+  .send-btn.loading:hover { background: var(--red); }
+  .send-btn.loading .spinner { display: inline-block; }
+  #sendElapsed { font-size: 11px; font-family: 'JetBrains Mono', monospace; min-width: 30px; }
   .save-btn { padding: 7px 12px; background: var(--bg-light); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
   .save-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -553,6 +560,76 @@
   .test-icon { font-weight: 700; width: 16px; }
   .test-error { font-size: 11px; color: var(--text-dim); margin-left: auto; }
 
+  /* ── Collection Docs ── */
+  .collection-docs { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .cdocs-topbar { padding: 0 20px; height: 42px; display: flex; align-items: center; background: var(--bg-dark); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 12px; }
+  .cdocs-topbar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cdocs-topbar-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+  .cdocs-topbar-btn { padding: 4px 10px; font-size: 12px; color: var(--text-dim); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; border-radius: 4px; transition: all .12s; }
+  .cdocs-topbar-btn:hover { color: var(--text-primary); background: var(--bg-mid); }
+  .cdocs-topbar-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+  .cdocs-tabs { display: flex; padding: 0 20px; background: var(--bg-dark); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 0; }
+  .cdocs-tab { padding: 9px 16px; font-size: 12px; font-weight: 500; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; transition: all .12s; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; position: relative; }
+  .cdocs-tab:hover { color: var(--text-primary); }
+  .cdocs-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+  .cdocs-tab .cdocs-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-left: 5px; vertical-align: middle; }
+  .cdocs-body { flex: 1; overflow-y: auto; }
+  .cdocs-panel { display: none; }
+  .cdocs-panel.active { display: block; }
+
+  .cdocs-overview { padding: 28px 32px; max-width: 800px; }
+  .cdocs-overview-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+  .cdocs-overview-meta { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .cdocs-overview-meta-item { display: flex; align-items: center; gap: 4px; }
+  .cdocs-overview-meta-item svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .cdocs-desc-area { position: relative; margin-bottom: 24px; }
+  .cdocs-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.65; min-height: 48px; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 8px 10px; width: 100%; font-family: 'Inter', sans-serif; resize: vertical; outline: none; transition: all .15s; }
+  .cdocs-desc:hover { border-color: var(--border); }
+  .cdocs-desc:focus { border-color: var(--accent); background: var(--bg-mid); }
+  .cdocs-desc::placeholder { color: var(--text-dim); }
+  .cdocs-view-docs-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; padding: 10px 0; border-top: 1px solid var(--border); margin-top: 8px; }
+  .cdocs-view-docs-link:hover { text-decoration: underline; }
+
+  .cdocs-auth-section { padding: 28px 32px; max-width: 800px; }
+  .cdocs-auth-header { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .cdocs-auth-type { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; }
+  .cdocs-auth-table { width: 100%; border-collapse: collapse; }
+  .cdocs-auth-table td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .cdocs-auth-table td:first-child { font-weight: 600; color: var(--text-primary); width: 140px; }
+  .cdocs-auth-table td:last-child { color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .cdocs-auth-note { font-size: 12px; color: var(--text-dim); margin-top: 12px; line-height: 1.5; }
+
+  .cdocs-scripts-section { padding: 28px 32px; max-width: 800px; }
+  .cdocs-script-block { margin-bottom: 24px; }
+  .cdocs-script-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim); margin-bottom: 6px; }
+  .cdocs-script-editor { width: 100%; min-height: 120px; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text-primary); outline: none; resize: vertical; tab-size: 2; line-height: 1.5; }
+  .cdocs-script-editor:focus { border-color: var(--accent); }
+
+  .cdocs-vars-section { padding: 28px 32px; max-width: 800px; }
+  .cdocs-vars-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cdocs-vars-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+  .cdocs-runs-section { padding: 28px 32px; max-width: 800px; }
+  .cdocs-runs-empty { text-align: center; color: var(--text-dim); font-size: 13px; padding: 40px 0; }
+
+  .cdocs-full-docs { padding: 0 32px 32px; max-width: 800px; }
+  .cdocs-full-docs-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-top: 12px; }
+  .cdocs-full-docs-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .cdocs-folder-section { margin-bottom: 20px; }
+  .cdocs-folder-heading { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 12px 0 4px; display: flex; align-items: center; gap: 8px; }
+  .cdocs-folder-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; font-style: italic; }
+  .cdocs-folder-auth-row { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; padding: 6px 10px; background: var(--bg-mid); border-radius: 4px; display: flex; align-items: center; gap: 6px; }
+  .cdocs-folder-auth-row strong { color: var(--text-secondary); font-weight: 600; }
+  .cdocs-req-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; transition: border-color .12s; }
+  .cdocs-req-card:hover { border-color: var(--accent); }
+  .cdocs-req-card-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; }
+  .cdocs-req-card-method { font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; min-width: 54px; padding: 3px 8px; border-radius: 4px; text-align: center; }
+  .cdocs-req-card-name { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; }
+  .cdocs-req-card-open { font-size: 12px; color: var(--accent); cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .cdocs-req-card-open:hover { text-decoration: underline; }
+  .cdocs-req-card-url { padding: 0 14px 10px; }
+  .cdocs-req-card-url code { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; background: var(--bg-mid); padding: 4px 8px; border-radius: 4px; display: block; overflow-x: auto; }
+
   /* ── Folder Editor ── */
   .folder-editor { flex: 1; display: none; flex-direction: column; overflow: hidden; }
   .folder-editor-header { padding: 16px; display: flex; align-items: center; gap: 12px; background: var(--bg-dark); border-bottom: 1px solid var(--border); }
@@ -631,6 +708,38 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 
+  /* ── Cloud sync ── */
+  .cloud-status-area { display: flex; align-items: center; -webkit-app-region: no-drag; margin-left: 4px; }
+  .cloud-login-btn { padding: 4px 10px; font-size: 11px; background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; transition: background .12s; }
+  .cloud-login-btn:hover { background: var(--accent-hover); }
+  .cloud-status-pill { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 2px 6px; border-radius: 6px; transition: background .12s; }
+  .cloud-status-pill:hover { background: var(--bg-light); }
+  .cloud-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .cloud-avatar-large { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+  .cloud-sync-icon { font-size: 14px; color: var(--text-dim); transition: color .12s; }
+  .cloud-sync-icon.spinning { animation: cloud-spin .8s linear infinite; color: var(--accent); }
+  @keyframes cloud-spin { to { transform: rotate(360deg); } }
+  .cloud-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .cloud-tab-btn { flex: 1; padding: 8px; font-size: 13px; font-weight: 500; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); cursor: pointer; font-family: 'Inter', sans-serif; transition: all .12s; }
+  .cloud-tab-btn:hover { color: var(--text-primary); }
+  .cloud-tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+  .cloud-form .form-group { margin-bottom: 12px; }
+
+  /* ── In-app dialog (replaces prompt/confirm) ── */
+  .app-dialog-overlay { position: fixed; inset: 0; background: var(--modal-overlay); display: none; align-items: center; justify-content: center; z-index: 4000; }
+  .app-dialog-overlay.open { display: flex; }
+  .app-dialog { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; width: 420px; max-width: 90vw; display: flex; flex-direction: column; box-shadow: 0 20px 60px var(--shadow-color); overflow: hidden; }
+  .app-dialog-header { padding: 16px 20px 8px; }
+  .app-dialog-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .app-dialog-body { padding: 8px 20px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .app-dialog-input { width: 100%; margin-top: 8px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text-primary); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+  .app-dialog-input:focus { border-color: var(--accent); }
+  .app-dialog-textarea { width: 100%; margin-top: 8px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text-primary); font-size: 12px; font-family: 'JetBrains Mono', monospace; outline: none; resize: vertical; min-height: 80px; line-height: 1.5; }
+  .app-dialog-textarea:focus { border-color: var(--accent); }
+  .app-dialog-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .app-dialog .btn-danger { padding: 7px 16px; background: var(--red); border: none; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .app-dialog .btn-danger:hover { filter: brightness(1.1); }
+
   /* ── Notifications ── */
   .notif { position: fixed; bottom: 20px; right: 20px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 2000; opacity: 0; transform: translateY(10px); transition: all 0.2s; pointer-events: none; }
   .notif.show { opacity: 1; transform: translateY(0); }
@@ -665,7 +774,26 @@
   .bg-HEAD { background: rgba(34,211,238,0.1); }
   .bg-OPTIONS { background: rgba(251,146,60,0.1); }
 
+  [data-theme="light"] .bg-GET { background: rgba(22,163,74,0.08); }
+  [data-theme="light"] .bg-POST { background: rgba(202,138,4,0.08); }
+  [data-theme="light"] .bg-PUT { background: rgba(37,99,235,0.08); }
+  [data-theme="light"] .bg-PATCH { background: rgba(124,58,237,0.08); }
+  [data-theme="light"] .bg-DELETE { background: rgba(220,38,38,0.08); }
+  [data-theme="light"] .bg-HEAD { background: rgba(8,145,178,0.08); }
+  [data-theme="light"] .bg-OPTIONS { background: rgba(234,88,12,0.08); }
+
+  [data-theme="light"] .status-2xx { background: rgba(22,163,74,0.08); color: var(--green); }
+  [data-theme="light"] .status-3xx { background: rgba(202,138,4,0.08); color: var(--yellow); }
+  [data-theme="light"] .status-4xx { background: rgba(220,38,38,0.08); color: var(--red); }
+  [data-theme="light"] .status-5xx { background: rgba(220,38,38,0.08); color: var(--red); }
+
+  [data-theme="light"] .spinner { border-color: rgba(0,0,0,0.15); border-top-color: #fff; }
+
   * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+  /* Web mode overrides */
+  .web-mode .titlebar { -webkit-app-region: initial; }
+  .web-mode .logo { margin-left: 8px !important; }
 </style>
 </head>
 <body>
@@ -698,7 +826,7 @@
     <img class="logo-icon-img" src="assets/icon.png" alt="Restfy" width="22" height="22">
     <span class="logo-text">Restfy</span>
   </div>
-  <div class="titlebar-tabs" id="tabsBar"></div>
+  <div class="titlebar-tabs" id="tabsBar" role="tablist"></div>
   <button class="new-tab-btn" onclick="newTab()" title="New request (Ctrl+N)">+</button>
   <div class="titlebar-right">
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode">&#9790;</button>
@@ -706,6 +834,7 @@
       <option value="">No Environment</option>
     </select>
     <button class="env-manage-btn" onclick="openEnvManager()" title="Manage Environments">Env</button>
+    <div id="cloudStatusArea" class="cloud-status-area"></div>
   </div>
 </div>
 
@@ -736,11 +865,90 @@
       <span class="empty-state-icon">&#128640;</span>
       <div class="empty-state-title">No request open</div>
       <div class="empty-state-sub">Click <strong>+</strong> to start a new request, import a Postman collection, or paste a cURL command.</div>
-      <div class="empty-state-shortcuts">
+      <div class="empty-state-shortcuts" id="emptyStateShortcuts">
         <div class="shortcut-row"><span class="shortcut-key">Ctrl+N</span> New request</div>
         <div class="shortcut-row"><span class="shortcut-key">Ctrl+Enter</span> Send request</div>
         <div class="shortcut-row"><span class="shortcut-key">Ctrl+S</span> Save request</div>
         <div class="shortcut-row"><span class="shortcut-key">Ctrl+L</span> Focus URL bar</div>
+      </div>
+    </div>
+
+    <!-- COLLECTION DOCUMENTATION -->
+    <div id="collectionDocs" class="collection-docs">
+      <!-- Top bar -->
+      <div class="cdocs-topbar">
+        <span class="cdocs-topbar-name" id="cdocsTopbarName"></span>
+        <div class="cdocs-topbar-actions">
+          <button class="cdocs-topbar-btn" id="cdocsPublishBtn" title="Download documentation as shareable HTML">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Publish docs
+          </button>
+          <button class="cdocs-topbar-btn" id="cdocsCopyLinkBtn" title="Copy collection JSON to clipboard">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            Copy link
+          </button>
+        </div>
+      </div>
+      <!-- Tabs -->
+      <div class="cdocs-tabs" id="cdocsTabsBar">
+        <button class="cdocs-tab active" data-cdocs-tab="overview" onclick="switchCDocsTab('overview')">Overview</button>
+        <button class="cdocs-tab" data-cdocs-tab="authorization" onclick="switchCDocsTab('authorization')">Authorization</button>
+        <button class="cdocs-tab" data-cdocs-tab="scripts" onclick="switchCDocsTab('scripts')">Scripts</button>
+        <button class="cdocs-tab" data-cdocs-tab="variables" onclick="switchCDocsTab('variables')">Variables</button>
+        <button class="cdocs-tab" data-cdocs-tab="runs" onclick="switchCDocsTab('runs')">Runs</button>
+      </div>
+      <!-- Body -->
+      <div class="cdocs-body">
+        <!-- Overview panel -->
+        <div class="cdocs-panel active" id="cdocsPanelOverview">
+          <div class="cdocs-overview">
+            <div class="cdocs-overview-title" id="cdocsOverviewTitle"></div>
+            <div class="cdocs-overview-meta" id="cdocsOverviewMeta"></div>
+            <div class="cdocs-desc-area">
+              <textarea class="cdocs-desc" id="cdocsDesc" placeholder="Add collection description..."></textarea>
+            </div>
+            <a class="cdocs-view-docs-link" id="cdocsViewDocsLink">View complete documentation &rarr;</a>
+          </div>
+          <div id="cdocsFullDocs" class="cdocs-full-docs" style="display:none"></div>
+        </div>
+        <!-- Authorization panel -->
+        <div class="cdocs-panel" id="cdocsPanelAuthorization">
+          <div class="cdocs-auth-section" id="cdocsAuthContent"></div>
+        </div>
+        <!-- Scripts panel -->
+        <div class="cdocs-panel" id="cdocsPanelScripts">
+          <div class="cdocs-scripts-section">
+            <div class="cdocs-script-block">
+              <div class="cdocs-script-label">Pre-request Script</div>
+              <textarea class="cdocs-script-editor" id="cdocsPreScript" placeholder="// JavaScript to run before each request in this collection"></textarea>
+            </div>
+            <div class="cdocs-script-block">
+              <div class="cdocs-script-label">Test Script</div>
+              <textarea class="cdocs-script-editor" id="cdocsTestScript" placeholder="// JavaScript to run after each request in this collection"></textarea>
+            </div>
+            <button class="btn-primary" id="cdocsSaveScriptsBtn">Save Scripts</button>
+          </div>
+        </div>
+        <!-- Variables panel -->
+        <div class="cdocs-panel" id="cdocsPanelVariables">
+          <div class="cdocs-vars-section">
+            <div class="cdocs-vars-header">
+              <span class="cdocs-vars-title">Collection Variables</span>
+              <button class="add-row-btn" onclick="addKvRow('cdocsVarsEditor', 'cdocsVars')">+ Add Variable</button>
+            </div>
+            <div class="kv-editor" id="cdocsVarsEditor"></div>
+            <button class="btn-primary" id="cdocsSaveVarsBtn" style="margin-top:12px">Save Variables</button>
+          </div>
+        </div>
+        <!-- Runs panel -->
+        <div class="cdocs-panel" id="cdocsPanelRuns">
+          <div class="cdocs-runs-section">
+            <div class="cdocs-runs-empty" id="cdocsRunsContent">
+              No runs yet. Click <strong>Run</strong> below to execute all requests in this collection.
+            </div>
+            <button class="btn-primary" id="cdocsRunCollectionBtn">Run Collection</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -797,10 +1005,12 @@
           <option value="OPTIONS">OPTIONS</option>
         </select>
         <div class="url-input-wrap">
-        <input type="text" class="url-input" id="urlInput" placeholder="https://api.example.com/endpoint" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey||!event.shiftKey)) sendRequest()">
+        <div class="url-highlight-overlay" id="urlHighlightOverlay"></div>
+        <input type="text" class="url-input" id="urlInput" placeholder="https://api.example.com/endpoint" autocomplete="off" spellcheck="false" oninput="updateUrlHighlight()" onscroll="syncUrlHighlightScroll()" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey||!event.shiftKey)) sendRequest()">
         </div>
         <button class="save-btn" onclick="openSaveModal()">Save</button>
         <button class="send-btn" id="sendBtn" onclick="sendRequest()">&#9654; Send</button>
+
       </div>
 
       <!-- REQUEST TABS -->
@@ -874,15 +1084,16 @@
               <option value="none">No Auth</option>
               <option value="basic">Basic Auth</option>
               <option value="bearer">Bearer Token</option>
-              <option value="jwt">JWT Bearer</option>
-              <option value="digest">Digest Auth</option>
-              <option value="oauth2">OAuth 2.0</option>
-              <option value="hawk">Hawk Authentication</option>
-              <option value="aws">AWS Signature</option>
-              <option value="ntlm">NTLM Authentication</option>
               <option value="apikey">API Key</option>
-              <option value="edgegrid">Akamai EdgeGrid</option>
-              <option value="asap">ASAP (Atlassian)</option>
+              <option value="oauth2">OAuth 2.0</option>
+              <option disabled>── Coming Soon ──</option>
+              <option value="jwt" disabled>JWT Bearer (coming soon)</option>
+              <option value="digest" disabled>Digest Auth (coming soon)</option>
+              <option value="hawk" disabled>Hawk (coming soon)</option>
+              <option value="aws" disabled>AWS Signature (coming soon)</option>
+              <option value="ntlm" disabled>NTLM (coming soon)</option>
+              <option value="edgegrid" disabled>Akamai EdgeGrid (coming soon)</option>
+              <option value="asap" disabled>ASAP / Atlassian (coming soon)</option>
             </select>
             <div class="auth-fields" id="authFields"></div>
           </div>
@@ -958,17 +1169,36 @@
 
 <!-- IMPORT MODAL -->
 <div class="modal-overlay" id="importModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Import Collection">
     <div class="modal-header">
       <span class="modal-title">Import Collection</span>
       <button class="modal-close" onclick="closeImport()">&#10005;</button>
     </div>
     <div class="modal-body">
-      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-        <div class="drop-zone-icon">&#128194;</div>
-        <div class="drop-zone-text">Drop your Postman collection here</div>
-        <div class="drop-zone-sub">or click to browse — supports Postman v2 &amp; v2.1 JSON with folders</div>
-        <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileSelect(event)">
+      <div class="import-tabs" style="display:flex;gap:2px;background:var(--bg-mid);border-radius:6px;padding:2px;margin-bottom:14px;">
+        <button class="import-tab-btn active" data-tab="file" onclick="switchImportTab('file')" style="flex:1;padding:6px 8px;border-radius:5px;border:none;background:var(--bg-light);color:var(--text-primary);font-size:11px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif">File</button>
+        <button class="import-tab-btn" data-tab="text" onclick="switchImportTab('text')" style="flex:1;padding:6px 8px;border-radius:5px;border:none;background:transparent;color:var(--text-dim);font-size:11px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif">Paste JSON</button>
+        <button class="import-tab-btn" data-tab="link" onclick="switchImportTab('link')" style="flex:1;padding:6px 8px;border-radius:5px;border:none;background:transparent;color:var(--text-dim);font-size:11px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif">From URL</button>
+      </div>
+      <div id="importTabFile">
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="drop-zone-icon">&#128194;</div>
+          <div class="drop-zone-text">Drop your Postman collection here</div>
+          <div class="drop-zone-sub">or click to browse — supports Postman v2 &amp; v2.1 JSON with folders</div>
+          <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileSelect(event)">
+        </div>
+      </div>
+      <div id="importTabText" style="display:none">
+        <textarea id="importJsonTextarea" class="app-dialog-textarea" rows="10" placeholder='Paste your Postman collection JSON here...' style="width:100%;min-height:180px;font-size:12px"></textarea>
+        <button class="btn-primary" style="margin-top:8px" onclick="importFromText()">Parse JSON</button>
+      </div>
+      <div id="importTabLink" style="display:none">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Paste a URL to a Postman collection JSON (raw link, GitHub raw URL, or any URL that returns collection JSON).</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-input" id="importUrlInput" placeholder="https://www.getpostman.com/collections/... or any JSON URL" style="font-size:12px">
+          <button class="btn-primary" onclick="importFromUrl()" style="white-space:nowrap">Fetch</button>
+        </div>
+        <div id="importUrlStatus" style="margin-top:8px;font-size:11px;color:var(--text-dim)"></div>
       </div>
       <div id="importPreview" style="display:none; background: var(--bg-mid); border-radius:6px; padding:12px; font-size:12px; color: var(--text-secondary);"></div>
     </div>
@@ -981,7 +1211,7 @@
 
 <!-- SAVE MODAL -->
 <div class="modal-overlay" id="saveModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Save Request">
     <div class="modal-header">
       <span class="modal-title">Save Request</span>
       <button class="modal-close" onclick="closeSaveModal()">&#10005;</button>
@@ -1017,7 +1247,7 @@
 
 <!-- ENVIRONMENT MANAGER MODAL -->
 <div class="modal-overlay" id="envModal">
-  <div class="modal wide">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-label="Environment Manager">
     <div class="modal-header">
       <span class="modal-title">Environment Manager</span>
       <button class="modal-close" onclick="closeEnvManager()">&#10005;</button>
@@ -1046,7 +1276,14 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="justify-content:space-between;">
+      <div style="display:flex;gap:6px;">
+        <button class="btn-secondary" onclick="exportEnvironments()" title="Export environments as JSON">Export</button>
+        <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;" title="Import environments from JSON file">
+          Import
+          <input type="file" accept=".json,application/json" style="display:none" onchange="importEnvironments(event)">
+        </label>
+      </div>
       <button class="btn-primary" onclick="saveEnvChanges()">Done</button>
     </div>
   </div>
@@ -1054,7 +1291,7 @@
 
 <!-- CODE GENERATION MODAL -->
 <div class="modal-overlay" id="codeGenModal">
-  <div class="modal wide">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-label="Code Generation">
     <div class="modal-header">
       <span class="modal-title" id="codeGenTitle">Generate Code Snippet</span>
       <button class="modal-close" onclick="closeCodeGen()">&#10005;</button>
@@ -1094,11 +1331,66 @@
   </div>
 </div>
 
+<!-- CLOUD ACCOUNT MODAL -->
+<div class="modal-overlay" id="cloudModal" role="dialog" aria-modal="true">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <span class="modal-title">Restfy Cloud</span>
+      <button class="modal-close" onclick="closeCloudModal()">&#10005;</button>
+    </div>
+    <div class="modal-body" id="cloudModalBody"></div>
+  </div>
+</div>
+
+<!-- IN-APP DIALOG (replaces prompt/confirm) -->
+<div class="app-dialog-overlay" id="appDialogOverlay">
+  <div class="app-dialog" role="dialog" aria-modal="true">
+    <div class="app-dialog-header"><div class="app-dialog-title" id="appDialogTitle"></div></div>
+    <div class="app-dialog-body" id="appDialogBody"></div>
+    <div class="app-dialog-footer" id="appDialogFooter"></div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Share Collection</span>
+      <button class="modal-close" onclick="closeShareModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px" id="shareCollectionName"></div>
+        <div style="font-size:12px;color:var(--text-secondary)">Your collection has been published. Share these links with anyone.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Documentation Page</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-input" id="shareDocUrl" readonly style="font-family:'JetBrains Mono',monospace;font-size:12px">
+          <button class="btn-primary" onclick="copyShareUrl('shareDocUrl')" style="white-space:nowrap">Copy</button>
+        </div>
+        <a id="shareDocLink" href="#" target="_blank" style="font-size:11px;display:inline-block;margin-top:4px">View documentation &rarr;</a>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Open in Restfy Link</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-input" id="shareImportUrl" readonly style="font-family:'JetBrains Mono',monospace;font-size:12px">
+          <button class="btn-primary" onclick="copyShareUrl('shareImportUrl')" style="white-space:nowrap">Copy</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Anyone with this link can import the collection into their Restfy</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeShareModal()">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONTEXT MENU -->
-<div class="context-menu" id="contextMenu"></div>
+<div class="context-menu" id="contextMenu" role="menu"></div>
 
 <!-- NOTIFICATION -->
-<div class="notif" id="notif"></div>
+<div class="notif" id="notif" aria-live="polite"></div>
 
 <!-- SCRIPTS -->
 <script src="js/utils.js"></script>
@@ -1106,15 +1398,17 @@
 <script src="js/ui.js"></script>
 <script src="js/http.js"></script>
 <script src="js/codegen.js"></script>
+<script src="js/share.js"></script>
 <script src="js/scripts.js"></script>
+<script src="js/cloud.js"></script>
 
 <script>
 // ═══════════════════════════════════════════
 // INITIALIZATION & KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════════
 
-function createNewCollection() {
-  const name = prompt('Collection name:');
+async function createNewCollection() {
+  const name = await appPrompt('New collection', 'Enter a name for the new collection.', { placeholder: 'My Collection' });
   if (!name) return;
   const col = makeCollection({ name });
   collections.push(col);
@@ -1140,6 +1434,7 @@ document.getElementById('urlInput').addEventListener('input', function() {
   if (t) {
     t.url = this.value;
     t.name = this.value ? (this.value.replace(/https?:\/\//, '').split('?')[0].split('/').filter(Boolean).pop() || this.value).substring(0, 30) : 'New Request';
+    if (tabData[activeTabId]) tabData[activeTabId].dirty = true;
     renderTabs();
   }
 });
@@ -1181,7 +1476,12 @@ document.addEventListener('keydown', (e) => {
   if (mod && e.key === 'd') { e.preventDefault(); if (activeTabId) duplicateTab(activeTabId); }
   if (mod && e.shiftKey && e.key === 'C') { e.preventDefault(); generateCurl(); }
   if (mod && e.key === 'b') { e.preventDefault(); formatJson(); }
-  if (e.key === 'Escape') { hideContextMenu(); }
+  if (e.key === 'Escape') {
+    hideContextMenu();
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    const dlg = document.getElementById('appDialogOverlay');
+    if (dlg && dlg.classList.contains('open')) dlg.classList.remove('open');
+  }
 });
 
 // Auto-save on interval
@@ -1217,6 +1517,7 @@ document.addEventListener('visibilitychange', () => {
 
 // Init
 async function init() {
+  if (_isWebMode) document.body.classList.add('web-mode');
   loadTheme();
   await loadState();
   renderEnvSelector();
@@ -1229,6 +1530,15 @@ async function init() {
   }
   renderSidebar();
   setupUrlVariableHover();
+  setupInputVarTooltips();
+  if (_isMac) {
+    const sc = document.getElementById('emptyStateShortcuts');
+    if (sc) sc.querySelectorAll('.shortcut-key').forEach(el => {
+      el.textContent = el.textContent.replace(/Ctrl\+/g, '⌘');
+    });
+  }
+  await checkAutoImport();
+  renderCloudStatus();
 }
 
 init();

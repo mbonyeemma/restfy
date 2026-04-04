@@ -71,6 +71,87 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+const _isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+const _modKey = _isMac ? '⌘' : 'Ctrl';
+
+/** Promise-based in-app confirm dialog. Returns true/false. */
+function appConfirm(title, message, opts) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('appDialogOverlay');
+    const titleEl = document.getElementById('appDialogTitle');
+    const bodyEl = document.getElementById('appDialogBody');
+    const footerEl = document.getElementById('appDialogFooter');
+    titleEl.textContent = title || 'Confirm';
+    bodyEl.innerHTML = '';
+    bodyEl.textContent = message || '';
+    const danger = opts && opts.danger;
+    footerEl.innerHTML = '';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.textContent = (opts && opts.cancelLabel) || 'Cancel';
+    cancelBtn.onclick = () => { overlay.classList.remove('open'); resolve(false); };
+    const okBtn = document.createElement('button');
+    okBtn.className = danger ? 'btn-danger' : 'btn-primary';
+    okBtn.textContent = (opts && opts.okLabel) || 'OK';
+    okBtn.onclick = () => { overlay.classList.remove('open'); resolve(true); };
+    footerEl.appendChild(cancelBtn);
+    footerEl.appendChild(okBtn);
+    overlay.classList.add('open');
+    okBtn.focus();
+    overlay.onkeydown = (e) => {
+      if (e.key === 'Escape') { overlay.classList.remove('open'); resolve(false); }
+    };
+  });
+}
+
+/** Promise-based in-app prompt dialog. Returns string or null. */
+function appPrompt(title, message, opts) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('appDialogOverlay');
+    const titleEl = document.getElementById('appDialogTitle');
+    const bodyEl = document.getElementById('appDialogBody');
+    const footerEl = document.getElementById('appDialogFooter');
+    titleEl.textContent = title || '';
+    bodyEl.innerHTML = '';
+    if (message) {
+      const p = document.createElement('div');
+      p.textContent = message;
+      bodyEl.appendChild(p);
+    }
+    const isTextarea = opts && opts.textarea;
+    const input = document.createElement(isTextarea ? 'textarea' : 'input');
+    input.className = isTextarea ? 'app-dialog-textarea' : 'app-dialog-input';
+    if (!isTextarea) input.type = 'text';
+    input.placeholder = (opts && opts.placeholder) || '';
+    input.value = (opts && opts.defaultValue) || '';
+    bodyEl.appendChild(input);
+    footerEl.innerHTML = '';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.textContent = (opts && opts.cancelLabel) || 'Cancel';
+    cancelBtn.onclick = () => { overlay.classList.remove('open'); resolve(null); };
+    const okBtn = document.createElement('button');
+    okBtn.className = 'btn-primary';
+    okBtn.textContent = (opts && opts.okLabel) || 'OK';
+    const submit = () => {
+      const val = input.value.trim();
+      if (!val && !(opts && opts.allowEmpty)) return;
+      overlay.classList.remove('open');
+      resolve(val);
+    };
+    okBtn.onclick = submit;
+    if (!isTextarea) input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+    footerEl.appendChild(cancelBtn);
+    footerEl.appendChild(okBtn);
+    overlay.classList.add('open');
+    input.focus();
+    if (!isTextarea) input.select();
+    overlay.onkeydown = (e) => {
+      if (e.key === 'Escape') { overlay.classList.remove('open'); resolve(null); }
+    };
+  });
+}
+
 const COMMON_HEADERS = [
   'Accept','Accept-Encoding','Accept-Language','Authorization',
   'Cache-Control','Connection','Content-Type','Cookie',

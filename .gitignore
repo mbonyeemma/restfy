@@ -1,5 +1,9 @@
 node_modules/
 .venv-icon/
 dist/
+data/
+server/data/
+server/dist/
+server/node_modules/
 .DS_Store
 *.dmg

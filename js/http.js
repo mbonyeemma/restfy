@@ -2,8 +2,18 @@
 // HTTP REQUEST SENDING & RESPONSE
 // ═══════════════════════════════════════════
 
+let _activeAbortController = null;
+let _requestElapsedTimer = null;
+
+function cancelRequest() {
+  if (_activeAbortController) {
+    _activeAbortController.abort();
+    _activeAbortController = null;
+  }
+}
+
 async function sendRequest() {
-  const method = document.getElementById('methodSelect').value;
+  let method = document.getElementById('methodSelect').value;
   let url = document.getElementById('urlInput').value.trim();
   if (!url) { showNotif('Please enter a URL', 'error'); return; }
   if (!url.startsWith('http')) url = 'https://' + url;
@@ -68,44 +78,90 @@ async function sendRequest() {
     }
   }
 
-  // Pre-request script
+  // Pre-request scripts: ancestor chain (collection → folder → …) then tab's own
+  // Scripts can mutate url, method, headers, body via pm.request
+  let reqContext = { url, method, headers, body };
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab?.sourceId) {
+    const chain = getAncestorChain(tab.sourceId);
+    for (const ancestor of chain) {
+      if (ancestor.preRequestScript) {
+        try {
+          const result = runPreRequestScript(ancestor.preRequestScript, reqContext);
+          if (result) Object.assign(reqContext, result);
+        } catch (e) { showNotif('Pre-request script error (' + ancestor.name + '): ' + e.message, 'error'); return; }
+      }
+    }
+  }
   const preScript = tabData[activeTabId]?.preRequestScript;
   if (preScript) {
-    try { runPreRequestScript(preScript, { url, method, headers, body }); }
-    catch (e) { showNotif('Pre-request script error: ' + e.message, 'error'); }
+    try {
+      const result = runPreRequestScript(preScript, reqContext);
+      if (result) Object.assign(reqContext, result);
+    } catch (e) { showNotif('Pre-request script error: ' + e.message, 'error'); return; }
   }
+  url = reqContext.url;
+  method = reqContext.method;
+  Object.assign(headers, reqContext.headers);
+  if (reqContext.body !== undefined) body = reqContext.body;
 
   const sendBtn = document.getElementById('sendBtn');
-  sendBtn.innerHTML = '<div class="spinner"></div>';
+  sendBtn.innerHTML = '<span class="spinner"></span><span id="sendElapsed"></span>';
   sendBtn.classList.add('loading');
-  sendBtn.disabled = true;
+  sendBtn.onclick = cancelRequest;
 
   const startTime = Date.now();
+  _requestElapsedTimer = setInterval(() => {
+    const el = document.getElementById('sendElapsed');
+    if (el) el.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+  }, 100);
+
+  _activeAbortController = new AbortController();
+  const signal = _activeAbortController.signal;
 
   try {
-    const opts = { method, headers };
+    const opts = { method, headers, signal };
     if (body) opts.body = body;
-    const response = await fetch(url, opts);
+    const response = await restfyFetch(url, opts);
     const elapsed = Date.now() - startTime;
     const respText = await response.text();
     showResponse(response, respText, elapsed, url, method);
 
+    const respCtx = {
+      status: response.status, statusText: response.statusText,
+      body: respText, headers: Object.fromEntries(response.headers.entries())
+    };
+    let allTestResults = [];
+    // Ancestor test scripts (collection → folder → …)
+    const sendTab = tabs.find(t => t.id === activeTabId);
+    if (sendTab?.sourceId) {
+      const chain = getAncestorChain(sendTab.sourceId);
+      for (const ancestor of chain) {
+        if (ancestor.testScript) {
+          try { allTestResults = allTestResults.concat(runTestScript(ancestor.testScript, respCtx)); }
+          catch (e) { console.error('Test script error (' + ancestor.name + '):', e); }
+        }
+      }
+    }
     const testScript = tabData[activeTabId]?.testScript;
     if (testScript) {
-      try {
-        const testResults = runTestScript(testScript, {
-          status: response.status, statusText: response.statusText,
-          body: respText, headers: Object.fromEntries(response.headers.entries())
-        });
-        renderTestResults(testResults);
-      } catch (e) { console.error('Test script error:', e); }
+      try { allTestResults = allTestResults.concat(runTestScript(testScript, respCtx)); }
+      catch (e) { console.error('Test script error:', e); }
     }
+    if (allTestResults.length) renderTestResults(allTestResults);
   } catch (err) {
-    showError(err.message);
+    if (err.name === 'AbortError') {
+      showNotif('Request cancelled', 'info');
+      showResponsePlaceholder();
+    } else {
+      showError(err.message);
+    }
   } finally {
+    clearInterval(_requestElapsedTimer);
+    _activeAbortController = null;
     sendBtn.innerHTML = '&#9654; Send';
     sendBtn.classList.remove('loading');
-    sendBtn.disabled = false;
+    sendBtn.onclick = sendRequest;
   }
 }
 

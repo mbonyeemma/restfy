@@ -31,7 +31,10 @@ function runPreRequestScript(script, context) {
     request: {
       url: context.url,
       method: context.method,
-      headers: context.headers
+      headers: Object.assign({}, context.headers),
+      body: context.body,
+      addHeader: function(key, value) { this.headers[key] = value; },
+      removeHeader: function(key) { delete this.headers[key]; }
     },
     variables: {
       get: (key) => resolveVariables('{{' + key + '}}'),
@@ -52,6 +55,8 @@ function runPreRequestScript(script, context) {
   } catch (e) {
     throw new Error('Pre-request script error: ' + e.message);
   }
+  // Return mutated request so callers can apply changes
+  return { url: pm.request.url, method: pm.request.method, headers: pm.request.headers, body: pm.request.body };
 }
 
 function runTestScript(script, context) {

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Documentation — Restfy</title>
+<link rel="icon" type="image/png" href="/assets/icon.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root, [data-theme="dark"] {
+    --bg-page: #111111;
+    --bg-card: #1a1a1a;
+    --bg-code: #0d0d0d;
+    --bg-sidebar: #151515;
+    --bg-hover: #222222;
+    --bg-badge: #252525;
+    --border: #2a2a2a;
+    --text-primary: #e8e8e8;
+    --text-secondary: #999;
+    --text-dim: #555;
+    --accent: #ef5c35;
+    --accent-hover: #f06e4a;
+    --green: #3dd68c;
+    --red: #f56565;
+    --yellow: #f6c90e;
+    --blue: #4da6ff;
+    --purple: #a78bfa;
+    --cyan: #22d3ee;
+    --orange: #fb923c;
+  }
+  [data-theme="light"] {
+    --bg-page: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-code: #f3f4f6;
+    --bg-sidebar: #ffffff;
+    --bg-hover: #f0f0f0;
+    --bg-badge: #e8e8e8;
+    --border: #e5e5e5;
+    --text-primary: #1a1a1a;
+    --text-secondary: #555;
+    --text-dim: #999;
+    --accent: #ef5c35;
+    --accent-hover: #e04a25;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #ca8a04;
+    --blue: #2563eb;
+    --purple: #7c3aed;
+    --cyan: #0891b2;
+    --orange: #ea580c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg-page); color: var(--text-primary); line-height: 1.6; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 24px;
+    background: var(--bg-card); border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .topbar-logo { display: flex; align-items: center; gap: 8px; }
+  .topbar-logo img { width: 24px; height: 24px; border-radius: 5px; }
+  .topbar-logo span { font-weight: 600; font-size: 15px; color: var(--text-secondary); }
+  .topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn-open {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: background 0.15s; text-decoration: none;
+  }
+  .btn-open:hover { background: var(--accent-hover); text-decoration: none; }
+  .btn-download {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; background: transparent; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.15s; text-decoration: none;
+  }
+  .btn-download:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .btn-theme {
+    width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px;
+    background: transparent; color: var(--text-secondary); font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: flex; min-height: calc(100vh - 57px); }
+
+  .sidebar {
+    width: 280px; flex-shrink: 0;
+    background: var(--bg-sidebar); border-right: 1px solid var(--border);
+    padding: 16px 0; overflow-y: auto;
+    position: sticky; top: 57px; height: calc(100vh - 57px);
+  }
+  .sidebar-section { padding: 0 12px; margin-bottom: 4px; }
+  .sidebar-heading {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim); padding: 8px 12px 4px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; color: var(--text-secondary); transition: all 0.1s;
+  }
+  .sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .sidebar-item.active { background: var(--bg-hover); color: var(--text-primary); font-weight: 500; }
+  .sidebar-folder {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; font-size: 12px; font-weight: 600;
+    color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;
+    cursor: pointer; margin-top: 8px;
+  }
+  .sidebar-folder:first-child { margin-top: 0; }
+
+  .method-badge {
+    font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+    padding: 2px 6px; border-radius: 3px; min-width: 38px; text-align: center;
+    flex-shrink: 0;
+  }
+  .m-GET { color: var(--green); background: rgba(61,214,140,0.1); }
+  .m-POST { color: var(--yellow); background: rgba(246,201,14,0.1); }
+  .m-PUT { color: var(--blue); background: rgba(77,166,255,0.1); }
+  .m-PATCH { color: var(--purple); background: rgba(167,139,250,0.1); }
+  .m-DELETE { color: var(--red); background: rgba(245,101,101,0.1); }
+  .m-HEAD { color: var(--cyan); background: rgba(34,211,238,0.1); }
+  .m-OPTIONS { color: var(--orange); background: rgba(251,146,60,0.1); }
+
+  [data-theme="light"] .m-GET { color: var(--green); background: rgba(22,163,74,0.08); }
+  [data-theme="light"] .m-POST { color: var(--yellow); background: rgba(202,138,4,0.08); }
+  [data-theme="light"] .m-PUT { color: var(--blue); background: rgba(37,99,235,0.08); }
+  [data-theme="light"] .m-PATCH { color: var(--purple); background: rgba(124,58,237,0.08); }
+  [data-theme="light"] .m-DELETE { color: var(--red); background: rgba(220,38,38,0.08); }
+  [data-theme="light"] .m-HEAD { color: var(--cyan); background: rgba(8,145,178,0.08); }
+  [data-theme="light"] .m-OPTIONS { color: var(--orange); background: rgba(234,88,12,0.08); }
+
+  .content { flex: 1; padding: 32px 40px; max-width: 900px; }
+
+  .endpoint {
+    margin-bottom: 48px; padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .endpoint:last-child { border-bottom: none; }
+
+  .endpoint-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .endpoint-method {
+    font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .endpoint-name { font-size: 20px; font-weight: 700; }
+
+  .endpoint-url {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 16px; margin: 16px 0; color: var(--text-secondary);
+    word-break: break-all; position: relative;
+  }
+  .endpoint-url .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg-card); color: var(--text-dim); font-size: 11px;
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.1s;
+  }
+  .endpoint-url .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); margin: 24px 0 8px;
+  }
+
+  .params-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .params-table th {
+    text-align: left; padding: 8px 12px; background: var(--bg-code);
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); border-bottom: 1px solid var(--border);
+  }
+  .params-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);
+    vertical-align: top;
+  }
+  .params-table td:first-child {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--cyan); font-weight: 500; white-space: nowrap;
+  }
+  .params-table tr:last-child td { border-bottom: none; }
+  .params-table-wrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+
+  .code-block {
+    background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 1.7; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    color: var(--text-secondary); position: relative;
+  }
+  .code-block .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg-card); color: var(--text-dim); font-size: 11px;
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.1s;
+  }
+  .code-block .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .auth-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; background: var(--bg-code); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 12px; color: var(--text-secondary);
+  }
+  .auth-badge strong { color: var(--text-primary); }
+
+  .meta-bar {
+    display: flex; align-items: center; gap: 16px; padding: 16px 0; margin-bottom: 24px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .meta-item { font-size: 12px; color: var(--text-dim); }
+  .meta-item strong { color: var(--text-secondary); }
+
+  .empty-msg {
+    text-align: center; padding: 80px 40px; color: var(--text-dim); font-size: 14px;
+  }
+  .empty-msg .icon { font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.3; }
+
+  .folder-divider {
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+    margin: 40px 0 16px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .folder-divider:first-child { margin-top: 0; }
+  .folder-icon { font-size: 16px; opacity: 0.6; }
+
+  .loading {
+    display: flex; align-items: center; justify-content: center; min-height: 60vh;
+    color: var(--text-dim); font-size: 14px; gap: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 20px; height: 20px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .content { padding: 20px 16px; }
+    .topbar { padding: 10px 16px; }
+    .topbar-title { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <img src="/assets/icon.png" alt="Restfy" width="24" height="24">
+    <span>Restfy</span>
+  </div>
+  <div class="topbar-title" id="docTitle">Loading...</div>
+  <div class="topbar-actions">
+    <button class="btn-theme" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">&#9790;</button>
+    <button class="btn-download" id="downloadBtn" onclick="downloadCollection()">Download JSON</button>
+    <a class="btn-open" id="openBtn" href="#">Open in Restfy</a>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="content" id="content">
+    <div class="loading"><div class="spinner"></div> Loading documentation...</div>
+  </main>
+</div>
+
+<script>
+let _collectionData = null;
+
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+function getCollectionId() {
+  const parts = window.location.pathname.split('/');
+  return parts[parts.length - 1];
+}
+
+async function loadDocs() {
+  const id = getCollectionId();
+  try {
+    const resp = await fetch(`/api/shared/${id}`);
+    if (!resp.ok) throw new Error('Not found');
+    const data = await resp.json();
+    _collectionData = data;
+
+    document.title = data.name + ' — API Docs — Restfy';
+    document.getElementById('docTitle').textContent = data.name;
+    document.getElementById('openBtn').href = `/?import=${id}`;
+
+    renderSidebar(data.collection);
+    renderContent(data.collection, data);
+  } catch (err) {
+    document.getElementById('content').innerHTML = `
+      <div class="empty-msg">
+        <span class="icon">&#128533;</span>
+        <div>Documentation not found</div>
+        <div style="margin-top:8px;font-size:12px">This link may have expired or been deleted.</div>
+      </div>`;
+    document.getElementById('docTitle').textContent = 'Not Found';
+  }
+}
+
+function collectEndpoints(node, folderPath) {
+  const endpoints = [];
+  const path = folderPath ? folderPath : '';
+  if (node.children) {
+    node.children.forEach(child => {
+      if (child.type === 'request') {
+        endpoints.push({ ...child, folder: path });
+      } else if (child.type === 'folder') {
+        endpoints.push(...collectEndpoints(child, path ? path + ' / ' + child.name : child.name));
+      }
+    });
+  }
+  return endpoints;
+}
+
+function renderSidebar(col) {
+  const nav = document.getElementById('sidebar');
+  let html = '<div class="sidebar-section">';
+  html += `<div class="sidebar-heading">${esc(col.name)}</div>`;
+
+  function renderItems(children, depth) {
+    children.forEach(child => {
+      if (child.type === 'request') {
+        html += `<div class="sidebar-item" data-id="${child.id}" onclick="scrollToEndpoint('${child.id}')">
+          <span class="method-badge m-${child.method}">${child.method}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(child.name)}</span>
+        </div>`;
+      } else if (child.type === 'folder') {
+        html += `<div class="sidebar-folder" style="padding-left:${12 + depth * 8}px">&#128193; ${esc(child.name)}</div>`;
+        if (child.children) renderItems(child.children, depth + 1);
+      }
+    });
+  }
+
+  if (col.children) renderItems(col.children, 0);
+  html += '</div>';
+  nav.innerHTML = html;
+}
+
+function scrollToEndpoint(id) {
+  const el = document.getElementById('ep-' + id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+    const sideItem = document.querySelector(`.sidebar-item[data-id="${id}"]`);
+    if (sideItem) sideItem.classList.add('active');
+  }
+}
+
+function renderContent(col, meta) {
+  const container = document.getElementById('content');
+  let html = '';
+
+  const reqCount = countReqs(col);
+  const folderCount = col.children ? col.children.filter(c => c.type === 'folder').length : 0;
+  html += `<div class="meta-bar">
+    <div class="meta-item"><strong>${reqCount}</strong> endpoint${reqCount !== 1 ? 's' : ''}</div>
+    ${folderCount > 0 ? `<div class="meta-item"><strong>${folderCount}</strong> folder${folderCount !== 1 ? 's' : ''}</div>` : ''}
+    <div class="meta-item"><strong>${meta.views}</strong> view${meta.views !== 1 ? 's' : ''}</div>
+    <div class="meta-item">Published ${new Date(meta.createdAt).toLocaleDateString()}</div>
+  </div>`;
+
+  if (col.auth && col.auth.type !== 'none') {
+    html += `<div class="section-title">Collection Auth</div>`;
+    html += renderAuth(col.auth);
+  }
+
+  function renderNodes(children, folderName) {
+    children.forEach(child => {
+      if (child.type === 'folder') {
+        html += `<div class="folder-divider"><span class="folder-icon">&#128193;</span> ${esc(child.name)}</div>`;
+        if (child.children) renderNodes(child.children, child.name);
+      } else if (child.type === 'request') {
+        html += renderEndpoint(child);
+      }
+    });
+  }
+
+  if (col.children) renderNodes(col.children, '');
+
+  if (reqCount === 0) {
+    html += `<div class="empty-msg"><span class="icon">&#128196;</span> This collection has no endpoints.</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderEndpoint(req) {
+  let html = `<div class="endpoint" id="ep-${req.id}">`;
+  html += `<div class="endpoint-header">
+    <span class="endpoint-method m-${req.method}">${req.method}</span>
+    <span class="endpoint-name">${esc(req.name)}</span>
+  </div>`;
+
+  if (req.url) {
+    html += `<div class="endpoint-url">
+      <span>${esc(req.url)}</span>
+      <button class="copy-btn" onclick="copyText('${esc(req.url)}')">Copy</button>
+    </div>`;
+  }
+
+  const params = (req.params || []).filter(p => p.key);
+  if (params.length) {
+    html += `<div class="section-title">Query Parameters</div>`;
+    html += `<div class="params-table-wrap"><table class="params-table">
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>`;
+    params.forEach(p => {
+      html += `<tr><td>${esc(p.key)}</td><td>${esc(p.value)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  const headers = (req.headers || []).filter(h => h.key);
+  if (headers.length) {
+    html += `<div class="section-title">Headers</div>`;
+    html += `<div class="params-table-wrap"><table class="params-table">
+      <thead><tr><th>Header</th><th>Value</th></tr></thead><tbody>`;
+    headers.forEach(h => {
+      html += `<tr><td>${esc(h.key)}</td><td>${esc(h.value)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  if (req.auth && req.auth.type !== 'none' && req.auth.type !== 'inherit') {
+    html += `<div class="section-title">Authorization</div>`;
+    html += renderAuth(req.auth);
+  }
+
+  if (req.bodyType && req.bodyType !== 'none') {
+    html += `<div class="section-title">Request Body <span style="font-weight:400;text-transform:none;letter-spacing:0">(${esc(req.bodyType)})</span></div>`;
+
+    if (req.bodyType === 'json' || req.bodyType === 'raw' || req.bodyType === 'graphql') {
+      let display = req.body || '';
+      if (req.bodyType === 'json') {
+        try { display = JSON.stringify(JSON.parse(display), null, 2); } catch {}
+      }
+      html += `<div class="code-block">
+        <button class="copy-btn" onclick="copyText(this.parentElement.querySelector('code').textContent)">Copy</button>
+        <code>${esc(display)}</code>
+      </div>`;
+    } else if (req.bodyType === 'form' || req.bodyType === 'urlencoded') {
+      const fields = (req.bodyForm || []).filter(f => f.key);
+      if (fields.length) {
+        html += `<div class="params-table-wrap"><table class="params-table">
+          <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>`;
+        fields.forEach(f => {
+          html += `<tr><td>${esc(f.key)}</td><td>${esc(f.value)}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+    }
+  }
+
+  html += renderCurlExample(req);
+  html += `</div>`;
+  return html;
+}
+
+function renderAuth(auth) {
+  if (auth.type === 'bearer') return `<div class="auth-badge"><strong>Bearer Token</strong></div>`;
+  if (auth.type === 'basic') return `<div class="auth-badge"><strong>Basic Auth</strong> &mdash; ${esc(auth.username || 'username')}</div>`;
+  if (auth.type === 'apikey') return `<div class="auth-badge"><strong>API Key</strong> &mdash; ${esc(auth.key || 'X-API-Key')}</div>`;
+  if (auth.type === 'oauth2') return `<div class="auth-badge"><strong>OAuth 2.0</strong></div>`;
+  return `<div class="auth-badge"><strong>${esc(auth.type)}</strong></div>`;
+}
+
+function renderCurlExample(req) {
+  let url = req.url || '';
+  if (!url.startsWith('http')) url = 'https://' + url;
+  const params = (req.params || []).filter(p => p.enabled !== false && p.key);
+  if (params.length) {
+    const qs = params.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
+    url += (url.includes('?') ? '&' : '?') + qs;
+  }
+
+  let parts = [`curl -X ${req.method}`, `  '${url}'`];
+  const headers = (req.headers || []).filter(h => h.enabled !== false && h.key);
+  if (req.bodyType === 'json') headers.push({ key: 'Content-Type', value: 'application/json' });
+  headers.forEach(h => { parts.push(`  -H '${h.key}: ${h.value}'`); });
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if ((req.bodyType === 'json' || req.bodyType === 'raw') && req.body) {
+      parts.push(`  -d '${req.body.replace(/'/g, "'\\''")}'`);
+    }
+  }
+
+  const curl = parts.join(' \\\n');
+
+  return `<div class="section-title">cURL Example</div>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyText(this.parentElement.querySelector('code').textContent)">Copy</button>
+      <code>${esc(curl)}</code>
+    </div>`;
+}
+
+function countReqs(node) {
+  if (node.type === 'request') return 1;
+  if (!node.children) return 0;
+  return node.children.reduce((s, c) => s + countReqs(c), 0);
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+function downloadCollection() {
+  if (!_collectionData) return;
+  const postman = {
+    info: { name: _collectionData.name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+    item: exportItemsForDownload(_collectionData.collection.children || [])
+  };
+  const blob = new Blob([JSON.stringify(postman, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = _collectionData.name + '.postman_collection.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportItemsForDownload(children) {
+  return children.map(child => {
+    if (child.type === 'folder') {
+      return { name: child.name, item: exportItemsForDownload(child.children || []) };
+    }
+    const item = {
+      name: child.name,
+      request: {
+        method: child.method,
+        url: { raw: child.url, query: (child.params || []).filter(p => p.key).map(p => ({ key: p.key, value: p.value })) },
+        header: (child.headers || []).filter(h => h.key).map(h => ({ key: h.key, value: h.value })),
+      }
+    };
+    if (child.bodyType === 'json') item.request.body = { mode: 'raw', raw: child.body, options: { raw: { language: 'json' } } };
+    else if (child.bodyType === 'raw') item.request.body = { mode: 'raw', raw: child.body };
+    return item;
+  });
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = (html.getAttribute('data-theme') || 'dark') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('restfy_docs_theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '\u263E' : '\u2600';
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem('restfy_docs_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').textContent = saved === 'dark' ? '\u263E' : '\u2600';
+})();
+
+loadDocs();
+</script>
+</body>
+</html>

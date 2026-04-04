@@ -54,6 +54,7 @@ function makeCollection(overrides) {
     id: genId(),
     type: 'collection',
     name: 'New Collection',
+    description: '',
     headers: [],
     auth: { type: 'none' },
     variables: [],

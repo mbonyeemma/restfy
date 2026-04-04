@@ -5,6 +5,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "web": "npm --prefix server run dev",
+    "server": "npm --prefix server run dev",
+    "server:build": "npm --prefix server run build",
+    "server:start": "npm --prefix server run start",
     "build:mac": "electron-builder --mac",
     "build:dmg": "electron-builder --mac dmg"
   },
@@ -19,7 +23,10 @@
     "productName": "Restfy",
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.png"
     },
     "dmg": {
@@ -27,6 +34,7 @@
     },
     "files": [
       "app.html",
+      "docs.html",
       "main.js",
       "preload.js",
       "js/**",

@@ -9,11 +9,65 @@ function openImport() {
   document.getElementById('importPreview').style.display = 'none';
   document.getElementById('doImportBtn').style.display = 'none';
   document.getElementById('fileInput').value = '';
+  const ta = document.getElementById('importJsonTextarea');
+  if (ta) ta.value = '';
+  const urlInput = document.getElementById('importUrlInput');
+  if (urlInput) urlInput.value = '';
+  const urlStatus = document.getElementById('importUrlStatus');
+  if (urlStatus) urlStatus.textContent = '';
+  switchImportTab('file');
   document.getElementById('importModal').classList.add('open');
 }
 
 function closeImport() {
   document.getElementById('importModal').classList.remove('open');
+}
+
+function switchImportTab(tab) {
+  document.querySelectorAll('.import-tab-btn').forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.style.background = active ? 'var(--bg-light)' : 'transparent';
+    b.style.color = active ? 'var(--text-primary)' : 'var(--text-dim)';
+    b.classList.toggle('active', active);
+  });
+  document.getElementById('importTabFile').style.display = tab === 'file' ? 'block' : 'none';
+  document.getElementById('importTabText').style.display = tab === 'text' ? 'block' : 'none';
+  document.getElementById('importTabLink').style.display = tab === 'link' ? 'block' : 'none';
+}
+
+function importFromText() {
+  const ta = document.getElementById('importJsonTextarea');
+  const raw = (ta && ta.value || '').trim();
+  if (!raw) { showNotif('Paste some JSON first', 'error'); return; }
+  try {
+    const data = JSON.parse(raw);
+    processImportData(data);
+  } catch (err) {
+    showNotif('Invalid JSON: ' + err.message, 'error');
+  }
+}
+
+async function importFromUrl() {
+  const input = document.getElementById('importUrlInput');
+  let url = (input && input.value || '').trim();
+  if (!url) { showNotif('Enter a URL', 'error'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  const status = document.getElementById('importUrlStatus');
+  status.textContent = 'Fetching...';
+  status.style.color = 'var(--text-dim)';
+
+  try {
+    const resp = await restfyFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const data = JSON.parse(text);
+    status.textContent = '';
+    processImportData(data);
+  } catch (err) {
+    status.textContent = 'Failed: ' + err.message;
+    status.style.color = 'var(--red)';
+  }
 }
 
 function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
@@ -34,35 +88,39 @@ function processImportFile(file) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      const result = parsePostmanCollection(data);
-      if (result) {
-        pendingImport = result;
-        const preview = document.getElementById('importPreview');
-        preview.style.display = 'block';
-        const requests = [];
-        function collectReqs(node) {
-          if (node.type === 'request') requests.push(node);
-          if (node.children) node.children.forEach(collectReqs);
-        }
-        result.children.forEach(collectReqs);
-        preview.innerHTML = `
-          <div style="margin-bottom:8px; font-weight:600; color: var(--text-primary);">\u{1F4E6} ${escHtml(result.name)}</div>
-          <div style="color: var(--text-secondary);">${requests.length} request${requests.length !== 1 ? 's' : ''}, ${result.children.filter(c => c.type === 'folder').length} folder(s)</div>
-          <div style="margin-top:8px; max-height:150px; overflow-y:auto;">
-            ${requests.slice(0, 30).map(r => `<div style="padding:3px 0; display:flex; gap:8px; align-items:center;">
-              <span class="req-method-badge m-${r.method} bg-${r.method}" style="font-size:9px">${r.method}</span>
-              <span style="font-size:12px; color:var(--text-secondary)">${escHtml(r.name)}</span>
-            </div>`).join('')}
-            ${requests.length > 30 ? `<div style="color:var(--text-dim);font-size:11px">...and ${requests.length - 30} more</div>` : ''}
-          </div>
-        `;
-        document.getElementById('doImportBtn').style.display = 'inline-flex';
-      }
+      processImportData(data);
     } catch (err) {
       showNotif('Invalid JSON file: ' + err.message, 'error');
     }
   };
   reader.readAsText(file);
+}
+
+function processImportData(data) {
+  const result = parsePostmanCollection(data);
+  if (result) {
+    pendingImport = result;
+    const preview = document.getElementById('importPreview');
+    preview.style.display = 'block';
+    const requests = [];
+    function collectReqs(node) {
+      if (node.type === 'request') requests.push(node);
+      if (node.children) node.children.forEach(collectReqs);
+    }
+    result.children.forEach(collectReqs);
+    preview.innerHTML = `
+      <div style="margin-bottom:8px; font-weight:600; color: var(--text-primary);">${escHtml(result.name)}</div>
+      <div style="color: var(--text-secondary);">${requests.length} request${requests.length !== 1 ? 's' : ''}, ${result.children.filter(c => c.type === 'folder').length} folder(s)</div>
+      <div style="margin-top:8px; max-height:150px; overflow-y:auto;">
+        ${requests.slice(0, 30).map(r => `<div style="padding:3px 0; display:flex; gap:8px; align-items:center;">
+          <span class="req-method-badge m-${r.method} bg-${r.method}" style="font-size:9px">${r.method}</span>
+          <span style="font-size:12px; color:var(--text-secondary)">${escHtml(r.name)}</span>
+        </div>`).join('')}
+        ${requests.length > 30 ? `<div style="color:var(--text-dim);font-size:11px">...and ${requests.length - 30} more</div>` : ''}
+      </div>
+    `;
+    document.getElementById('doImportBtn').style.display = 'inline-flex';
+  }
 }
 
 function parsePostmanCollection(data) {
@@ -151,8 +209,8 @@ function doImport() {
 
 // ── Import cURL ──
 
-function openCurlImport() {
-  const curl = prompt('Paste a cURL command:');
+async function openCurlImport() {
+  const curl = await appPrompt('Import cURL', 'Paste a cURL command below.', { textarea: true, placeholder: 'curl https://api.example.com/endpoint -H "Authorization: Bearer ..."', okLabel: 'Import' });
   if (!curl) return;
   try {
     const req = parseCurl(curl);
@@ -320,6 +378,9 @@ function openCodeGen() {
 
 function closeCodeGen() {
   document.getElementById('codeGenModal').classList.remove('open');
+  document.getElementById('codeGenTitle').textContent = 'Generate Code Snippet';
+  const langs = document.querySelector('.codegen-langs');
+  if (langs) langs.style.display = '';
 }
 
 function generateCodeSnippet(lang) {
@@ -421,17 +482,17 @@ async function runCollection(colId) {
   const col = findNodeInAll(colId);
   if (!col) return;
   const requests = [];
-  function collect(node) {
-    if (node.type === 'request') requests.push(node);
-    if (node.children) node.children.forEach(collect);
+  function collect(node, id) {
+    if (node.type === 'request') requests.push({ req: node, id: id || node.id });
+    if (node.children) node.children.forEach(c => collect(c, c.id));
   }
-  collect(col);
+  collect(col, col.id);
 
   if (requests.length === 0) { showNotif('No requests to run', 'error'); return; }
   showNotif(`Running ${requests.length} requests...`, 'info');
 
   const results = [];
-  for (const req of requests) {
+  for (const { req, id } of requests) {
     let url = resolveVariables(req.url);
     if (!url.startsWith('http')) url = 'https://' + url;
     const params = (req.params || []).filter(r => r.enabled && r.key);
@@ -439,17 +500,66 @@ async function runCollection(colId) {
       const qs = params.map(r => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join('&');
       url += (url.includes('?') ? '&' : '?') + qs;
     }
+    // Merge inherited headers from ancestor chain
     const headers = {};
+    const chain = getAncestorChain(req.id);
+    chain.forEach(ancestor => {
+      if (ancestor.headers) ancestor.headers.forEach(h => {
+        if (h.enabled !== false && h.key) headers[resolveVariables(h.key)] = resolveVariables(h.value);
+      });
+    });
     (req.headers || []).filter(r => r.enabled && r.key).forEach(r => headers[resolveVariables(r.key)] = resolveVariables(r.value));
-    if (req.bodyType === 'json' && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-    const opts = { method: req.method, headers };
-    if (req.method !== 'GET' && req.method !== 'HEAD' && (req.bodyType === 'json' || req.bodyType === 'raw')) {
-      opts.body = resolveVariables(req.body);
+    // Merge inherited auth
+    let auth = req.auth || { type: 'none' };
+    if (!auth || auth.type === 'none' || auth.type === 'inherit') {
+      const inheritedAuth = getInheritedAuth(req.id);
+      if (inheritedAuth) auth = inheritedAuth.auth;
     }
+    if (auth.type === 'bearer') headers['Authorization'] = `Bearer ${resolveVariables(auth.token)}`;
+    else if (auth.type === 'basic') headers['Authorization'] = 'Basic ' + btoa(`${resolveVariables(auth.username)}:${resolveVariables(auth.password)}`);
+    else if (auth.type === 'apikey') headers[resolveVariables(auth.key)] = resolveVariables(auth.value);
+    if ((req.bodyType === 'json') && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    const opts = { method: req.method, headers };
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (req.bodyType === 'json' || req.bodyType === 'raw') opts.body = resolveVariables(req.body);
+      else if (req.bodyType === 'urlencoded') {
+        if (!headers['Content-Type']) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        opts.body = (req.bodyForm || []).filter(r => r.enabled && r.key)
+          .map(r => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join('&');
+      }
+    }
+    // Run ancestor + request pre-request scripts
+    let reqCtx = { url, method: req.method, headers, body: opts.body };
+    for (const ancestor of chain) {
+      if (ancestor.preRequestScript) {
+        try { const r = runPreRequestScript(ancestor.preRequestScript, reqCtx); if (r) Object.assign(reqCtx, r); }
+        catch (e) { results.push({ name: req.name, method: req.method, status: 'ERR', time: 0, passed: false, error: 'Pre-req script: ' + e.message }); continue; }
+      }
+    }
+    if (req.preRequestScript) {
+      try { const r = runPreRequestScript(req.preRequestScript, reqCtx); if (r) Object.assign(reqCtx, r); }
+      catch (e) { results.push({ name: req.name, method: req.method, status: 'ERR', time: 0, passed: false, error: 'Pre-req script: ' + e.message }); continue; }
+    }
+    opts.method = reqCtx.method;
+    Object.assign(opts.headers, reqCtx.headers);
+    if (reqCtx.body !== undefined) opts.body = reqCtx.body;
+
     const start = Date.now();
     try {
-      const resp = await fetch(url, opts);
-      results.push({ name: req.name, method: req.method, status: resp.status, time: Date.now() - start, passed: resp.status < 400 });
+      const resp = await restfyFetch(reqCtx.url, opts);
+      const respText = await resp.text();
+      let testResults = [];
+      const respCtx = { status: resp.status, statusText: resp.statusText, body: respText, headers: Object.fromEntries(resp.headers.entries()) };
+      for (const ancestor of chain) {
+        if (ancestor.testScript) {
+          try { testResults = testResults.concat(runTestScript(ancestor.testScript, respCtx)); } catch(e) {}
+        }
+      }
+      if (req.testScript) {
+        try { testResults = testResults.concat(runTestScript(req.testScript, respCtx)); } catch(e) {}
+      }
+      const testFailed = testResults.some(t => !t.passed);
+      results.push({ name: req.name, method: req.method, status: resp.status, time: Date.now() - start, passed: resp.status < 400 && !testFailed, tests: testResults });
     } catch (e) {
       results.push({ name: req.name, method: req.method, status: 'ERR', time: Date.now() - start, passed: false, error: e.message });
     }

@@ -23,6 +23,15 @@ A fast, beautiful, lightweight API client for macOS. No account required. No lim
 - **CORS Bypass** — Desktop app bypasses browser CORS restrictions
 - **Keyboard Shortcuts** — Ctrl+N, Ctrl+Enter, Ctrl+S, Ctrl+B, Ctrl+L, and more
 
+## Data & caching
+
+Collections, environments, tabs, and history are stored in two places:
+
+1. **Browser `localStorage`** (`restfy_data`) — fast reads on startup.
+2. **Disk cache** — `restfy-state.json` under Electron’s user data directory (e.g. `~/Library/Application Support/restfy/` on macOS).
+
+Saves are **debounced to disk** (~400ms) so edits stay smooth; **quitting or hiding the app** flushes immediately. On launch, the app loads whichever copy is newer (and prefers disk if `localStorage` was cleared but the file still exists). If `localStorage` hits its size limit, the file cache still holds your collections.
+
 ## Quick Start
 
 ### Run in Development
@@ -51,7 +60,7 @@ restfy/
 ├── preload.js         # Context bridge for IPC
 ├── package.json       # Project config & build settings
 ├── assets/
-│   └── logo.svg       # App logo
+│   └── icon.png       # App / dock / favicon (brand mark)
 ├── js/
 │   ├── utils.js       # Utility functions
 │   ├── state.js       # Data model & persistence

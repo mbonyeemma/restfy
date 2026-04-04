@@ -26,8 +26,15 @@ function debounce(fn, ms) {
 }
 
 function syntaxHighlight(json) {
-  json = escHtml(json);
-  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+  if (json == null) return '';
+  const s = String(json);
+  let result = '';
+  let lastIndex = 0;
+  const re = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    result += escHtml(s.slice(lastIndex, m.index));
+    const match = m[0];
     let cls = 'json-number';
     if (/^"/.test(match)) {
       cls = /:$/.test(match) ? 'json-key' : 'json-string';
@@ -36,8 +43,11 @@ function syntaxHighlight(json) {
     } else if (/null/.test(match)) {
       cls = 'json-null';
     }
-    return `<span class="${cls}">${match}</span>`;
-  });
+    result += '<span class="' + cls + '">' + escHtml(match) + '</span>';
+    lastIndex = re.lastIndex;
+  }
+  result += escHtml(s.slice(lastIndex));
+  return result;
 }
 
 function syntaxHighlightXml(xml) {

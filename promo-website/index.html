@@ -9,7 +9,8 @@
 <meta property="og:description" content="A fast, beautiful, open-source API client for macOS. No account required. No limits.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://mbonyeemma.github.io/restfy/">
-<link rel="icon" type="image/svg+xml" href="../assets/logo.svg">
+<link rel="icon" type="image/png" href="../assets/icon.png">
+<link rel="apple-touch-icon" href="../assets/icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -64,17 +65,12 @@
     text-decoration: none;
   }
 
-  .nav-logo-icon {
+  .nav-logo-img {
     width: 36px;
     height: 36px;
-    background: var(--accent);
     border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 16px;
-    color: #fff;
+    object-fit: cover;
+    display: block;
   }
 
   .nav-logo-text {
@@ -570,6 +566,12 @@
     color: var(--text-secondary);
   }
 
+  .footer-logo-img {
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
   .footer-links {
     display: flex;
     gap: 24px;
@@ -608,7 +610,7 @@
 <!-- NAV -->
 <nav>
   <a href="#" class="nav-logo">
-    <div class="nav-logo-icon">R</div>
+    <img class="nav-logo-img" src="../assets/icon.png" alt="Restfy" width="36" height="36">
     <span class="nav-logo-text">Restfy</span>
   </a>
   <div class="nav-links">
@@ -658,7 +660,7 @@
       <div class="dot dot-yellow"></div>
       <div class="dot dot-green"></div>
       <div style="flex:1"></div>
-      <span style="font-size:12px;color:#888;font-weight:600">Restfy</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#888;font-weight:600"><img src="../assets/icon.png" alt="" width="14" height="14" style="border-radius:3px;object-fit:cover" aria-hidden="true">Restfy</span>
       <div style="flex:1"></div>
     </div>
     <div class="app-frame-content">
@@ -812,7 +814,7 @@
 <!-- FOOTER -->
 <footer>
   <div class="footer-left">
-    <div class="nav-logo-icon" style="width:24px;height:24px;font-size:11px;border-radius:5px;">R</div>
+    <img class="footer-logo-img" src="../assets/icon.png" alt="Restfy" width="24" height="24">
     <span>&copy; 2026 Restfy. Open source under MIT License.</span>
   </div>
   <div class="footer-links">

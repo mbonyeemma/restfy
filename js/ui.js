@@ -2,6 +2,71 @@
 // UI RENDERING & INTERACTION
 // ═══════════════════════════════════════════
 
+let _collectionTreeFilter = '';
+let _treeDragActiveId = null;
+
+function clearTreeDropTargetClasses() {
+  document.querySelectorAll('.tree-drop-target, .tree-drop-after').forEach(el => {
+    el.classList.remove('tree-drop-target', 'tree-drop-after');
+  });
+}
+
+function bindTreeRowDnD(rowEl, nodeId) {
+  if (_collectionTreeFilter) {
+    rowEl.classList.add('tree-drag-disabled');
+    return;
+  }
+  const handle = rowEl.querySelector('.tree-drag-handle');
+  if (!handle) return;
+  handle.setAttribute('draggable', 'true');
+  handle.onmousedown = (e) => e.stopPropagation();
+  handle.onclick = (e) => e.stopPropagation();
+  handle.ondragstart = (e) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('text/plain', nodeId);
+    e.dataTransfer.effectAllowed = 'move';
+    _treeDragActiveId = nodeId;
+    rowEl.classList.add('dragging');
+  };
+  handle.ondragend = () => {
+    _treeDragActiveId = null;
+    rowEl.classList.remove('dragging');
+    clearTreeDropTargetClasses();
+  };
+  rowEl.ondragover = (e) => {
+    if (!_treeDragActiveId || _treeDragActiveId === nodeId) return;
+    const arrA = getSiblingArrayForNode(_treeDragActiveId);
+    const arrB = getSiblingArrayForNode(nodeId);
+    if (!arrA || arrA !== arrB) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = rowEl.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearTreeDropTargetClasses();
+    rowEl.classList.add('tree-drop-target');
+    if (after) rowEl.classList.add('tree-drop-after');
+  };
+  rowEl.ondragleave = (e) => {
+    if (!rowEl.contains(e.relatedTarget)) {
+      rowEl.classList.remove('tree-drop-target', 'tree-drop-after');
+    }
+  };
+  rowEl.ondrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const dragId = e.dataTransfer.getData('text/plain');
+    rowEl.classList.remove('tree-drop-target', 'tree-drop-after');
+    if (!dragId || dragId === nodeId) return;
+    const rect = rowEl.getBoundingClientRect();
+    const placeAfter = e.clientY > rect.top + rect.height / 2;
+    if (reorderAmongSiblings(dragId, nodeId, placeAfter)) {
+      saveState();
+      const sb = document.querySelector('.sidebar-search');
+      renderSidebar(sb ? sb.value : '');
+    }
+  };
+}
+
 // ── Tabs ──
 
 function newTab(req, sourceId) {
@@ -19,8 +84,8 @@ function newTab(req, sourceId) {
     params: req && req.params ? deepClone(req.params) : makeDefaultKv(),
     headers: req && req.headers ? deepClone(req.headers) : makeDefaultKv(),
     bodyForm: req && req.bodyForm ? deepClone(req.bodyForm) : makeDefaultKv(),
-    bodyType: req ? (req.bodyType || 'none') : 'none',
-    body: req ? (req.body || '') : '',
+    bodyType: req ? (req.bodyType != null ? req.bodyType : 'json') : 'json',
+    body: req ? (req.body != null ? req.body : '{}') : '{}',
     graphqlVars: req ? (req.graphqlVars || '') : '',
     auth: req ? deepClone(req.auth || { type: 'none' }) : { type: 'none' },
     preRequestScript: req ? (req.preRequestScript || '') : '',
@@ -116,7 +181,7 @@ function loadTabState(id) {
   } else {
     showResponsePlaceholder();
   }
-  switchReqTab('params');
+  switchReqTab(t.sourceId ? 'body' : 'params');
 }
 
 function renderTabs() {
@@ -183,7 +248,12 @@ function closeOtherTabs(keepId) {
 
 function renderSidebar(filter) {
   if (sidebarMode === 'collections') {
-    renderCollectionTree(filter || '');
+    let f = filter;
+    if (f === undefined) {
+      const sb = document.querySelector('.sidebar-search');
+      f = sb ? sb.value : '';
+    }
+    renderCollectionTree(f || '');
   } else {
     renderHistoryList(filter || '');
   }
@@ -196,6 +266,7 @@ function switchSidebarMode(mode) {
 }
 
 function renderCollectionTree(filter) {
+  _collectionTreeFilter = (filter || '').trim();
   const container = document.getElementById('sidebarContent');
   container.innerHTML = '';
   if (collections.length === 0) {
@@ -217,11 +288,13 @@ function renderTreeNode(node, depth, collectionId, filter) {
     div.style.paddingLeft = (12 + depth * 16) + 'px';
     div.dataset.id = node.id;
     div.innerHTML = `
+      <span class="tree-drag-handle" title="Drag to reorder">&#8942;&#8942;</span>
       <span class="req-method-badge m-${node.method} bg-${node.method}">${node.method}</span>
       <span class="tree-label">${escHtml(node.name)}</span>
     `;
     div.onclick = () => openRequest(node.id);
     div.oncontextmenu = (e) => { e.preventDefault(); showNodeContextMenu(e, node.id, 'request', collectionId); };
+    bindTreeRowDnD(div, node.id);
     return div;
   }
 
@@ -237,6 +310,7 @@ function renderTreeNode(node, depth, collectionId, filter) {
   header.style.paddingLeft = (12 + depth * 16) + 'px';
   header.dataset.id = node.id;
   header.innerHTML = `
+    <span class="tree-drag-handle" title="Drag to reorder">&#8942;&#8942;</span>
     <span class="tree-toggle">${isOpen ? '&#9660;' : '&#9654;'}</span>
     <span class="tree-folder-icon">${isCollection ? '&#128230;' : '&#128193;'}</span>
     <span class="tree-label">${escHtml(node.name)}</span>
@@ -248,6 +322,7 @@ function renderTreeNode(node, depth, collectionId, filter) {
     e.preventDefault();
     showNodeContextMenu(e, node.id, node.type, collectionId);
   };
+  bindTreeRowDnD(header, node.id);
 
   wrapper.appendChild(header);
 
@@ -766,7 +841,7 @@ function beautifyResponse() {
   try {
     const json = JSON.parse(raw);
     const formatted = JSON.stringify(json, null, 2);
-    content.innerHTML = syntaxHighlight(escHtml(formatted));
+    content.innerHTML = syntaxHighlight(formatted);
     showNotif('Response beautified', 'success');
   } catch {
     try {
@@ -800,10 +875,11 @@ function updateBodyHighlight() {
   if (!ta || !overlay || !lineNums) return;
 
   const val = ta.value || '';
-  const isJson = currentBodyType === 'json' || currentBodyType === 'graphql';
+  const isJsonBody = currentBodyType === 'json';
   const isRaw = currentBodyType === 'raw';
+  const isGraphql = currentBodyType === 'graphql';
 
-  if (!isJson && !isRaw) {
+  if (!isJsonBody && !isRaw && !isGraphql) {
     overlay.style.display = 'none';
     lineNums.style.display = 'none';
     ta.style.color = 'var(--text-primary)';
@@ -815,13 +891,8 @@ function updateBodyHighlight() {
   ta.style.color = 'transparent';
   ta.style.caretColor = 'var(--text-primary)';
 
-  if (isJson) {
-    try {
-      JSON.parse(val);
-      overlay.innerHTML = syntaxHighlight(escHtml(val));
-    } catch {
-      overlay.innerHTML = syntaxHighlight(escHtml(val));
-    }
+  if (isJsonBody) {
+    overlay.innerHTML = syntaxHighlight(val);
   } else {
     overlay.innerHTML = escHtml(val);
   }
@@ -1176,7 +1247,26 @@ function saveRequest() {
 
 function openEnvManager() {
   document.getElementById('envModal').classList.add('open');
+  setEnvModalTab('envs');
+  renderEnvSelector();
   renderEnvManager();
+}
+
+function setEnvModalTab(which) {
+  document.querySelectorAll('#envModal .env-tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.envTab === which);
+  });
+  const envs = document.getElementById('envTabEnvs');
+  const globs = document.getElementById('envTabGlobals');
+  if (envs) envs.style.display = which === 'envs' ? 'block' : 'none';
+  if (globs) globs.style.display = which === 'globals' ? 'block' : 'none';
+}
+
+function clearActiveEnv() {
+  activeEnvId = null;
+  saveState();
+  renderEnvManager();
+  renderEnvSelector();
 }
 
 function closeEnvManager() {
@@ -1184,39 +1274,52 @@ function closeEnvManager() {
 }
 
 function renderEnvManager() {
-  const list = document.getElementById('envList');
-  list.innerHTML = '';
+  const summary = document.getElementById('envActiveSummary');
+  if (summary) {
+    const active = environments.find(e => e.id === activeEnvId);
+    if (active) {
+      summary.innerHTML = `
+        <strong>Active environment:</strong> ${escHtml(active.name)}
+        <button type="button" class="btn-text" style="margin-left:8px" onclick="clearActiveEnv()">No environment</button>`;
+    } else {
+      summary.innerHTML = 'No environment selected — globals still apply. Choose one below or from the title bar dropdown.';
+    }
+  }
 
-  const globalSection = document.createElement('div');
-  globalSection.className = 'env-section';
-  globalSection.innerHTML = `
-    <div class="env-section-header">
-      <span class="env-section-title">Global Variables</span>
-    </div>
-    <div class="kv-editor" id="globalVarsEditor"></div>
-    <button class="add-row-btn" onclick="addGlobalVar()">+ Add Variable</button>
-  `;
-  list.appendChild(globalSection);
-  renderGlobalVarsEditor();
+  const hint = document.getElementById('envEmptyHint');
+  if (hint) {
+    if (environments.length === 0) {
+      hint.style.display = 'block';
+      hint.innerHTML = 'Create an environment (for example <strong>Local</strong> or <strong>Staging</strong>) to group variables. Use the <strong>Globals</strong> tab for values that apply everywhere (for example <code>base_url</code>).';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 
-  environments.forEach(env => {
-    const sec = document.createElement('div');
-    sec.className = 'env-section' + (env.id === activeEnvId ? ' active-env' : '');
-    sec.innerHTML = `
-      <div class="env-section-header">
-        <span class="env-section-title">${escHtml(env.name)}</span>
-        <div class="env-actions">
-          <button class="btn-text ${env.id === activeEnvId ? 'active' : ''}" onclick="setActiveEnv('${env.id}')">${env.id === activeEnvId ? 'Active' : 'Set Active'}</button>
-          <button class="btn-text" onclick="renameEnv('${env.id}')">Rename</button>
-          <button class="btn-text ctx-danger" onclick="deleteEnv('${env.id}')">Delete</button>
+  const namedList = document.getElementById('envNamedList');
+  if (namedList) {
+    namedList.innerHTML = '';
+    environments.forEach(env => {
+      const sec = document.createElement('div');
+      sec.className = 'env-section' + (env.id === activeEnvId ? ' active-env' : '');
+      sec.innerHTML = `
+        <div class="env-section-header">
+          <span class="env-section-title">${escHtml(env.name)}</span>
+          <div class="env-actions">
+            <button type="button" class="btn-text ${env.id === activeEnvId ? 'active' : ''}" onclick="setActiveEnv('${env.id}')">${env.id === activeEnvId ? 'Active' : 'Set active'}</button>
+            <button type="button" class="btn-text" onclick="renameEnv('${env.id}')">Rename</button>
+            <button type="button" class="btn-text ctx-danger" onclick="deleteEnv('${env.id}')">Delete</button>
+          </div>
         </div>
-      </div>
-      <div class="kv-editor" id="envVars_${env.id}"></div>
-      <button class="add-row-btn" onclick="addEnvVar('${env.id}')">+ Add Variable</button>
-    `;
-    list.appendChild(sec);
-    renderEnvVarsEditor(env);
-  });
+        <div class="kv-editor" id="envVars_${env.id}"></div>
+        <button type="button" class="add-row-btn" onclick="addEnvVar('${env.id}')">+ Add variable</button>
+      `;
+      namedList.appendChild(sec);
+      renderEnvVarsEditor(env);
+    });
+  }
+
+  renderGlobalVarsEditor();
 }
 
 function renderGlobalVarsEditor() {
@@ -1275,10 +1378,15 @@ function deleteEnvVar(envId, idx) {
   if (env) { env.variables.splice(idx, 1); if (env.variables.length === 0) env.variables.push({ key: '', value: '', enabled: true }); renderEnvManager(); }
 }
 
-function addEnvironment() {
-  const name = prompt('Environment name:');
-  if (!name) return;
+function addEnvironmentFromInput() {
+  const input = document.getElementById('envNewNameInput');
+  const name = (input && input.value || '').trim();
+  if (!name) {
+    showNotif('Enter a name for the environment', 'info');
+    return;
+  }
   environments.push({ id: genId(), name, variables: [{ key: '', value: '', enabled: true }] });
+  if (input) input.value = '';
   saveState();
   renderEnvManager();
   renderEnvSelector();
@@ -1316,8 +1424,233 @@ function saveEnvChanges() {
 
 function renderEnvSelector() {
   const sel = document.getElementById('envSelector');
-  sel.innerHTML = '<option value="">No Environment</option>';
+  if (!sel) return;
+  while (sel.firstChild) sel.removeChild(sel.firstChild);
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = 'No Environment';
+  sel.appendChild(none);
   environments.forEach(e => {
-    sel.innerHTML += `<option value="${e.id}" ${e.id === activeEnvId ? 'selected' : ''}>${escHtml(e.name)}</option>`;
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.name;
+    sel.appendChild(opt);
   });
+  sel.value = activeEnvId && environments.some(x => x.id === activeEnvId) ? activeEnvId : '';
+  hideUrlVarPopover();
+}
+
+// ── URL bar: hover {{variables}} → resolved value + link (Postman-style) ──
+
+let _urlVarMeasureCanvas = null;
+let _urlVarPopoverHideTimer = null;
+let _urlVarHitSig = null;
+let _urlVarHoverWired = false;
+
+function getUrlInputMeasureContext() {
+  const input = document.getElementById('urlInput');
+  if (!input) return null;
+  if (!_urlVarMeasureCanvas) _urlVarMeasureCanvas = document.createElement('canvas');
+  const ctx = _urlVarMeasureCanvas.getContext('2d');
+  const cs = getComputedStyle(input);
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  return { ctx, input };
+}
+
+function measureUrlSubstringWidth(upToIndex, fullText) {
+  const o = getUrlInputMeasureContext();
+  if (!o) return 0;
+  return o.ctx.measureText(fullText.slice(0, upToIndex)).width;
+}
+
+function getUrlVariableRegions(value) {
+  const regions = [];
+  const re = /\{\{(\w+)\}\}/g;
+  let m;
+  while ((m = re.exec(value)) !== null) {
+    regions.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      key: m[1],
+      raw: m[0]
+    });
+  }
+  return regions;
+}
+
+function hitTestUrlVariable(clientX) {
+  const input = document.getElementById('urlInput');
+  const ws = document.getElementById('requestWorkspace');
+  if (!input || !ws || ws.style.display === 'none') return null;
+  const rect = input.getBoundingClientRect();
+  const cs = getComputedStyle(input);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const x = clientX - rect.left - padL + input.scrollLeft;
+  if (x < 0) return null;
+  const value = input.value;
+  const regions = getUrlVariableRegions(value);
+  const fudge = 2;
+  for (const r of regions) {
+    const w0 = measureUrlSubstringWidth(r.start, value);
+    const w1 = measureUrlSubstringWidth(r.end, value);
+    if (x >= w0 - fudge && x <= w1 + fudge) return r;
+  }
+  return null;
+}
+
+function isProbablyHttpUrl(s) {
+  const t = (s || '').trim();
+  return /^https?:\/\/.+/i.test(t);
+}
+
+function hideUrlVarPopover() {
+  const pop = document.getElementById('urlVarPopover');
+  if (pop) pop.hidden = true;
+  const input = document.getElementById('urlInput');
+  if (input) input.classList.remove('url-input--var-hover');
+  _urlVarHitSig = null;
+}
+
+function positionUrlVarPopover(clientX, clientY) {
+  const pop = document.getElementById('urlVarPopover');
+  if (!pop || pop.hidden) return;
+  const margin = 10;
+  pop.style.left = '0px';
+  pop.style.top = '0px';
+  const pw = pop.offsetWidth;
+  const ph = pop.offsetHeight;
+  let left = clientX - pw / 2;
+  let top = clientY + margin;
+  left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
+  if (top + ph > window.innerHeight - margin) top = clientY - ph - margin;
+  pop.style.left = left + 'px';
+  pop.style.top = Math.max(margin, top) + 'px';
+}
+
+function updateUrlVarPopover(hit, clientX, clientY) {
+  const pop = document.getElementById('urlVarPopover');
+  if (!pop || !hit) return;
+  const { key, raw } = hit;
+  const { value, source } = lookupVariableKey(key);
+
+  const tokenEl = document.getElementById('urlVarPopoverToken');
+  if (tokenEl) tokenEl.textContent = raw;
+
+  const linkEl = document.getElementById('urlVarPopoverValueLink');
+  const textEl = document.getElementById('urlVarPopoverValueText');
+  if (linkEl) linkEl.style.display = 'none';
+  if (textEl) {
+    textEl.style.display = 'none';
+    textEl.className = 'url-var-popover-value-text';
+    textEl.textContent = '';
+  }
+
+  if (source === 'unresolved') {
+    if (textEl) {
+      textEl.style.display = 'block';
+      textEl.textContent = 'No value — variable is not defined';
+      textEl.classList.add('url-var-popover-value-muted');
+    }
+  } else if (value == null || String(value).trim() === '') {
+    if (textEl) {
+      textEl.style.display = 'block';
+      textEl.textContent = '(empty value)';
+      textEl.classList.add('url-var-popover-value-muted');
+    }
+  } else if (isProbablyHttpUrl(value)) {
+    const v = String(value).trim();
+    if (linkEl) {
+      linkEl.style.display = 'inline-block';
+      linkEl.href = v;
+      linkEl.textContent = v;
+      linkEl.title = v;
+    }
+  } else if (textEl) {
+    textEl.style.display = 'block';
+    textEl.textContent = value;
+  }
+
+  const badge = document.getElementById('urlVarPopoverBadge');
+  if (badge) {
+    if (source === 'environment') {
+      badge.innerHTML = '<span class="url-var-popover-badge-icon env">E</span><span>Environment</span>';
+    } else if (source === 'global') {
+      badge.innerHTML = '<span class="url-var-popover-badge-icon glob">G</span><span>Global</span>';
+    } else {
+      badge.innerHTML = '<span class="url-var-popover-badge-icon miss">?</span><span>Unresolved</span>';
+    }
+  }
+
+  const input = document.getElementById('urlInput');
+  const fullResolved = input ? resolveVariables(input.value.trim()) : '';
+  const resRow = document.getElementById('urlVarPopoverResolvedRow');
+  const resLink = document.getElementById('urlVarPopoverResolvedLink');
+  if (resRow && resLink) {
+    if (fullResolved && isProbablyHttpUrl(fullResolved)) {
+      resRow.style.display = 'block';
+      resLink.href = fullResolved.trim();
+      resLink.textContent = fullResolved.trim();
+    } else {
+      resRow.style.display = 'none';
+    }
+  }
+
+  const manageBtn = document.getElementById('urlVarPopoverManageBtn');
+  if (manageBtn) {
+    manageBtn.onclick = () => {
+      hideUrlVarPopover();
+      openEnvManager();
+    };
+  }
+
+  pop.hidden = false;
+  requestAnimationFrame(() => positionUrlVarPopover(clientX, clientY));
+}
+
+function setupUrlVariableHover() {
+  const input = document.getElementById('urlInput');
+  const pop = document.getElementById('urlVarPopover');
+  if (!input || !pop || _urlVarHoverWired) return;
+  _urlVarHoverWired = true;
+
+  input.addEventListener('mousemove', (e) => {
+    const hit = hitTestUrlVariable(e.clientX);
+    if (!hit) {
+      input.classList.remove('url-input--var-hover');
+      _urlVarHitSig = null;
+      if (_urlVarPopoverHideTimer) clearTimeout(_urlVarPopoverHideTimer);
+      _urlVarPopoverHideTimer = setTimeout(() => {
+        if (!pop.matches(':hover')) hideUrlVarPopover();
+      }, 100);
+      return;
+    }
+    if (_urlVarPopoverHideTimer) clearTimeout(_urlVarPopoverHideTimer);
+    input.classList.add('url-input--var-hover');
+    const sig = hit.start + ':' + hit.end;
+    if (sig !== _urlVarHitSig) {
+      _urlVarHitSig = sig;
+      updateUrlVarPopover(hit, e.clientX, e.clientY);
+    } else {
+      positionUrlVarPopover(e.clientX, e.clientY);
+    }
+  });
+
+  input.addEventListener('mouseleave', (e) => {
+    if (e.relatedTarget && pop.contains(e.relatedTarget)) return;
+    if (_urlVarPopoverHideTimer) clearTimeout(_urlVarPopoverHideTimer);
+    _urlVarPopoverHideTimer = setTimeout(() => {
+      if (!pop.matches(':hover')) hideUrlVarPopover();
+    }, 120);
+  });
+
+  pop.addEventListener('mouseenter', () => {
+    if (_urlVarPopoverHideTimer) clearTimeout(_urlVarPopoverHideTimer);
+  });
+
+  pop.addEventListener('mouseleave', (e) => {
+    if (e.relatedTarget && input.contains(e.relatedTarget)) return;
+    hideUrlVarPopover();
+  });
+
+  input.addEventListener('scroll', () => hideUrlVarPopover());
 }

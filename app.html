@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Restfy — API Client</title>
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -42,22 +44,22 @@
     --iframe-bg: #fff;
   }
 
-  /* ── Light Theme ── */
+  /* ── Light Theme (flat, pure white — minimal shadows) ── */
   [data-theme="light"] {
-    --bg-darkest: #f5f5f5;
+    --bg-darkest: #ffffff;
     --bg-dark: #ffffff;
-    --bg-mid: #f0f0f0;
-    --bg-light: #e8e8e8;
-    --bg-lighter: #dedede;
-    --border: #d0d0d0;
-    --border-light: #c0c0c0;
+    --bg-mid: #f6f6f6;
+    --bg-light: #eeeeee;
+    --bg-lighter: #e8e8e8;
+    --border: #e5e5e5;
+    --border-light: #ebebeb;
     --text-primary: #1a1a1a;
     --text-secondary: #555555;
-    --text-dim: #999;
+    --text-dim: #888888;
     --accent: #ef5c35;
     --accent-hover: #e04a25;
     --accent-dark: #c44a28;
-    --accent-glow: rgba(239,92,53,0.1);
+    --accent-glow: transparent;
     --green: #16a34a;
     --red: #dc2626;
     --yellow: #ca8a04;
@@ -72,9 +74,66 @@
     --method-delete: #dc2626;
     --method-head: #0891b2;
     --method-options: #ea580c;
-    --shadow-color: rgba(0,0,0,0.12);
-    --modal-overlay: rgba(0,0,0,0.4);
+    --shadow-color: rgba(0,0,0,0.06);
+    --modal-overlay: rgba(0,0,0,0.35);
     --iframe-bg: #fff;
+  }
+
+  [data-theme="light"] .url-input:focus,
+  [data-theme="light"] .method-select:focus,
+  [data-theme="light"] .kv-input:focus,
+  [data-theme="light"] .auth-input:focus,
+  [data-theme="light"] .sidebar-search:focus,
+  [data-theme="light"] .env-selector:focus {
+    box-shadow: none !important;
+  }
+
+  [data-theme="light"] .method-border-GET:focus,
+  [data-theme="light"] .method-border-POST:focus,
+  [data-theme="light"] .method-border-PUT:focus,
+  [data-theme="light"] .method-border-PATCH:focus,
+  [data-theme="light"] .method-border-DELETE:focus,
+  [data-theme="light"] .method-border-HEAD:focus,
+  [data-theme="light"] .method-border-OPTIONS:focus {
+    box-shadow: none !important;
+  }
+
+  [data-theme="light"] .context-menu {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+
+  [data-theme="light"] .modal {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+  }
+
+  [data-theme="light"] .tab {
+    background: #f6f6f6;
+  }
+
+  [data-theme="light"] .tab.active {
+    background: #ffffff;
+    border-color: var(--border);
+  }
+
+  [data-theme="light"] .tree-folder-header {
+    background: #f6f6f6;
+  }
+
+  [data-theme="light"] .response-header,
+  [data-theme="light"] .panel-tabs,
+  [data-theme="light"] .request-bar {
+    background: #ffffff;
+  }
+
+  [data-theme="light"] .body-editor-wrapper,
+  [data-theme="light"] .response-body,
+  [data-theme="light"] .response-raw {
+    background: #ffffff;
+  }
+
+  [data-theme="light"] .body-line-numbers {
+    background: #fafafa;
+    border-right-color: var(--border);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -102,14 +161,8 @@
     -webkit-app-region: drag;
     user-select: none;
   }
-  .titlebar-traffic { display: flex; gap: 7px; -webkit-app-region: no-drag; }
-  .traffic-btn { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; transition: opacity 0.15s; }
-  .traffic-btn:hover { opacity: 0.8; }
-  .traffic-close { background: #ff5f57; }
-  .traffic-min { background: #febc2e; }
-  .traffic-max { background: #28c840; }
-  .logo { display: flex; align-items: center; gap: 8px; margin-left: 8px; -webkit-app-region: no-drag; }
-  .logo-icon { width: 22px; height: 22px; background: var(--accent); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .logo { display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
+  .logo-icon-img { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; flex-shrink: 0; display: block; }
   .logo-text { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
   .titlebar-tabs { display: flex; gap: 2px; flex: 1; margin-left: 16px; -webkit-app-region: no-drag; overflow-x: auto; scrollbar-width: none; }
   .titlebar-tabs::-webkit-scrollbar { display: none; }
@@ -125,11 +178,11 @@
   .tab-close:hover { background: var(--bg-lighter); color: var(--text-primary); }
 
   .titlebar-right { display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
-  .theme-toggle-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .theme-toggle-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; -webkit-app-region: no-drag; position: relative; z-index: 50; }
   .theme-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .env-selector { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-family: 'Inter', sans-serif; outline: none; cursor: pointer; max-width: 140px; transition: border-color 0.15s; }
+  .env-selector { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-family: 'Inter', sans-serif; outline: none; cursor: pointer; max-width: 160px; min-width: 120px; transition: border-color 0.15s; -webkit-app-region: no-drag; position: relative; z-index: 50; }
   .env-selector:focus { border-color: var(--accent); }
-  .env-manage-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--text-dim); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+  .env-manage-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--text-dim); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; -webkit-app-region: no-drag; position: relative; z-index: 50; }
   .env-manage-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   .new-tab-btn { padding: 5px 10px; background: transparent; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.15s; flex-shrink: 0; -webkit-app-region: no-drag; }
@@ -208,9 +261,120 @@
   .method-select { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; color: var(--method-get); font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 7px 10px; cursor: pointer; outline: none; min-width: 100px; transition: all 0.15s; }
   .method-select:focus { border-color: var(--accent); }
   .method-select option { color: var(--text-primary); background: var(--bg-mid); }
+  .url-input-wrap { flex: 1; min-width: 0; display: flex; align-items: stretch; }
+  .url-input-wrap .url-input { width: 100%; min-width: 0; }
   .url-input { flex: 1; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; outline: none; transition: all 0.15s; }
+  .url-input.url-input--var-hover { cursor: help; }
   .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
   .url-input::placeholder { color: var(--text-dim); font-family: 'Inter', sans-serif; }
+
+  .url-var-popover {
+    position: fixed;
+    z-index: 5000;
+    min-width: 220px;
+    max-width: min(420px, calc(100vw - 24px));
+    padding: 0;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px var(--shadow-color);
+    font-family: 'Inter', sans-serif;
+    pointer-events: auto;
+  }
+  .url-var-popover-token {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    padding: 8px 12px 4px;
+    word-break: break-all;
+  }
+  .url-var-popover-value-wrap {
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .url-var-popover-value-link {
+    display: inline-block;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+    line-height: 1.45;
+  }
+  .url-var-popover-value-link:hover { color: var(--accent); }
+  .url-var-popover-value-text {
+    display: block;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+    word-break: break-all;
+    line-height: 1.45;
+  }
+  .url-var-popover-value-muted {
+    color: var(--text-dim);
+    font-style: italic;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+  }
+  .url-var-popover-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .url-var-popover-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: none;
+  }
+  .url-var-popover-badge-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .url-var-popover-badge-icon.env { background: var(--green); }
+  .url-var-popover-badge-icon.glob { background: var(--blue); }
+  .url-var-popover-badge-icon.miss { background: var(--text-dim); }
+  .url-var-popover-manage {
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    padding: 2px 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .url-var-popover-manage:hover { color: var(--accent); }
+  .url-var-popover-resolved {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .url-var-popover-resolved a {
+    color: var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    word-break: break-all;
+  }
+  .url-var-popover-resolved a:hover { color: var(--accent); }
 
   .method-border-GET:focus { border-color: var(--method-get); box-shadow: 0 0 0 2px rgba(61,214,140,0.15); }
   .method-border-POST:focus { border-color: var(--method-post); box-shadow: 0 0 0 2px rgba(246,201,14,0.15); }
@@ -433,6 +597,28 @@
   .env-section-header { display: flex; align-items: center; padding: 10px 12px; background: var(--bg-light); gap: 8px; }
   .env-section-title { font-size: 13px; font-weight: 600; flex: 1; }
   .env-actions { display: flex; gap: 4px; }
+  .env-modal-body { display: flex; flex-direction: column; gap: 12px; }
+  .env-active-summary { font-size: 13px; color: var(--text-secondary); padding: 8px 12px; background: var(--bg-mid); border-radius: 6px; border: 1px solid var(--border); line-height: 1.5; }
+  .env-active-summary strong { color: var(--text-primary); }
+  .env-modal-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .env-tab-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .env-tab-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+  .env-tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .env-tab-panel { padding-top: 4px; }
+  .env-empty-hint { padding: 12px; background: var(--bg-mid); border-radius: 8px; border: 1px dashed var(--border); font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 8px; }
+  .env-empty-hint code { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .env-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .env-add-row .form-input { flex: 1; min-width: 160px; }
+
+  .tree-drag-handle { flex-shrink: 0; width: 14px; color: var(--text-dim); cursor: grab; font-size: 10px; line-height: 1; letter-spacing: -2px; user-select: none; opacity: 0.45; padding: 2px 0; }
+  .tree-drag-handle:hover { opacity: 0.9; color: var(--text-secondary); }
+  .tree-drag-handle:active { cursor: grabbing; }
+  .tree-node.tree-drag-disabled .tree-drag-handle { cursor: default; opacity: 0.15; pointer-events: none; }
+  .tree-node.dragging { opacity: 0.45; }
+  .tree-node.tree-drop-target { position: relative; }
+  .tree-node.tree-drop-target::before { content: ''; position: absolute; left: 4px; right: 4px; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; }
+  .tree-node.tree-drop-target.tree-drop-after::before { top: auto; bottom: 0; }
+  .tree-node.tree-drop-target:not(.tree-drop-after)::before { top: 0; bottom: auto; }
 
   /* Code gen modal */
   .codegen-langs { display: flex; gap: 2px; padding: 12px 20px; background: var(--bg-mid); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -508,20 +694,15 @@
 
 <!-- TITLEBAR -->
 <div class="titlebar">
-  <div class="titlebar-traffic">
-    <div class="traffic-btn traffic-close" onclick="window.electronAPI ? window.electronAPI.close() : window.close()"></div>
-    <div class="traffic-btn traffic-min" onclick="window.electronAPI && window.electronAPI.minimize()"></div>
-    <div class="traffic-btn traffic-max" onclick="window.electronAPI && window.electronAPI.maximize()"></div>
-  </div>
-  <div class="logo">
-    <div class="logo-icon">R</div>
+  <div class="logo" style="margin-left:68px;">
+    <img class="logo-icon-img" src="assets/icon.png" alt="Restfy" width="22" height="22">
     <span class="logo-text">Restfy</span>
   </div>
   <div class="titlebar-tabs" id="tabsBar"></div>
   <button class="new-tab-btn" onclick="newTab()" title="New request (Ctrl+N)">+</button>
   <div class="titlebar-right">
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode">&#9790;</button>
-    <select class="env-selector" id="envSelector" onchange="activeEnvId = this.value || null; saveState();" title="Active Environment">
+    <select class="env-selector" id="envSelector" title="Active Environment">
       <option value="">No Environment</option>
     </select>
     <button class="env-manage-btn" onclick="openEnvManager()" title="Manage Environments">Env</button>
@@ -615,7 +796,9 @@
           <option value="HEAD">HEAD</option>
           <option value="OPTIONS">OPTIONS</option>
         </select>
-        <input type="text" class="url-input" id="urlInput" placeholder="https://api.example.com/endpoint" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey||!event.shiftKey)) sendRequest()">
+        <div class="url-input-wrap">
+        <input type="text" class="url-input" id="urlInput" placeholder="https://api.example.com/endpoint" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey||!event.shiftKey)) sendRequest()">
+        </div>
         <button class="save-btn" onclick="openSaveModal()">Save</button>
         <button class="send-btn" id="sendBtn" onclick="sendRequest()">&#9654; Send</button>
       </div>
@@ -839,9 +1022,31 @@
       <span class="modal-title">Environment Manager</span>
       <button class="modal-close" onclick="closeEnvManager()">&#10005;</button>
     </div>
-    <div class="modal-body" id="envList"></div>
+    <div class="modal-body env-modal-body">
+      <div id="envActiveSummary" class="env-active-summary"></div>
+      <div class="env-modal-tabs">
+        <button type="button" class="env-tab-btn active" data-env-tab="envs" onclick="setEnvModalTab('envs')">Environments</button>
+        <button type="button" class="env-tab-btn" data-env-tab="globals" onclick="setEnvModalTab('globals')">Globals</button>
+      </div>
+      <div id="envTabEnvs" class="env-tab-panel">
+        <div id="envEmptyHint" class="env-empty-hint" style="display:none"></div>
+        <div class="env-add-row">
+          <input type="text" class="form-input" id="envNewNameInput" placeholder="Name (e.g. Local, Staging)" onkeydown="if(event.key==='Enter'){event.preventDefault();addEnvironmentFromInput();}">
+          <button type="button" class="btn-primary" onclick="addEnvironmentFromInput()">Add environment</button>
+        </div>
+        <div id="envNamedList"></div>
+      </div>
+      <div id="envTabGlobals" class="env-tab-panel" style="display:none">
+        <div class="env-section">
+          <div class="env-section-header">
+            <span class="env-section-title">Global variables</span>
+          </div>
+          <div class="kv-editor" id="globalVarsEditor"></div>
+          <button class="add-row-btn" onclick="addGlobalVar()">+ Add variable</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
-      <button class="btn-secondary" onclick="addEnvironment()">+ New Environment</button>
       <button class="btn-primary" onclick="saveEnvChanges()">Done</button>
     </div>
   </div>
@@ -869,6 +1074,23 @@
       <button class="btn-secondary" onclick="closeCodeGen()">Close</button>
       <button class="btn-primary" onclick="copyCodeGen()">Copy Code</button>
     </div>
+  </div>
+</div>
+
+<!-- URL variable hover (resolved value + link) -->
+<div id="urlVarPopover" class="url-var-popover" hidden>
+  <div class="url-var-popover-token" id="urlVarPopoverToken"></div>
+  <div class="url-var-popover-value-wrap">
+    <a id="urlVarPopoverValueLink" class="url-var-popover-value-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none"></a>
+    <span id="urlVarPopoverValueText" class="url-var-popover-value-text"></span>
+  </div>
+  <div class="url-var-popover-resolved" id="urlVarPopoverResolvedRow" style="display:none">
+    <span>Resolved request URL · </span>
+    <a id="urlVarPopoverResolvedLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+  </div>
+  <div class="url-var-popover-footer">
+    <span class="url-var-popover-badge" id="urlVarPopoverBadge"></span>
+    <button type="button" class="url-var-popover-manage" id="urlVarPopoverManageBtn">Variables in request →</button>
   </div>
 </div>
 
@@ -968,16 +1190,35 @@ setInterval(() => {
   saveState();
 }, 30000);
 
-// Save on unload
+// Save on unload (flush disk cache so collections are never lost on quit)
 window.addEventListener('beforeunload', () => {
   if (activeTabId) saveCurrentTabState();
-  saveState();
+  saveState({ forceDisk: true });
 });
 
+// When app is hidden (e.g. Cmd+H), persist immediately
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (activeTabId) saveCurrentTabState();
+    saveState({ forceDisk: true });
+  }
+});
+
+// Environment dropdown (script listener so activeEnvId updates reliably in Electron)
+(function setupEnvSelector() {
+  const sel = document.getElementById('envSelector');
+  if (!sel) return;
+  sel.addEventListener('change', function() {
+    activeEnvId = this.value === '' ? null : this.value;
+    saveState();
+    hideUrlVarPopover();
+  });
+})();
+
 // Init
-function init() {
+async function init() {
   loadTheme();
-  loadState();
+  await loadState();
   renderEnvSelector();
   if (tabs.length > 0 && activeTabId) {
     renderTabs();
@@ -987,6 +1228,7 @@ function init() {
     newTab();
   }
   renderSidebar();
+  setupUrlVariableHover();
 }
 
 init();

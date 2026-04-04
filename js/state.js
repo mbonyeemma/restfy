@@ -29,8 +29,8 @@ function makeRequest(overrides) {
     url: '',
     params: makeDefaultKv(),
     headers: makeDefaultKv(),
-    bodyType: 'none',
-    body: '',
+    bodyType: 'json',
+    body: '{}',
     bodyForm: makeDefaultKv(),
     auth: { type: 'none' },
     preRequestScript: '',
@@ -201,59 +201,180 @@ function moveNode(nodeId, targetParentId) {
   target.children.push(node);
 }
 
-// ── Persistence ──
-
-function saveState() {
-  try {
-    const data = {
-      version: 2,
-      collections,
-      environments,
-      activeEnvId,
-      globalVars,
-      history,
-      openTabs: tabs.map(t => ({
-        id: t.id, name: t.name, method: t.method, url: t.url,
-        sourceId: t.sourceId, pinned: t.pinned
-      })),
-      activeTabId,
-      tabData: {},
-      openFolders: Array.from(openFolders)
-    };
-    for (const tid in tabData) {
-      const d = tabData[tid];
-      data.tabData[tid] = {
-        params: d.params, headers: d.headers, bodyForm: d.bodyForm,
-        bodyType: d.bodyType, body: d.body, graphqlVars: d.graphqlVars || '',
-        auth: d.auth, preRequestScript: d.preRequestScript || '',
-        testScript: d.testScript || '', pinned: d.pinned || false
-      };
-    }
-    localStorage.setItem('restfy_data', JSON.stringify(data));
-  } catch (e) { console.error('Save failed:', e); }
+function getSiblingArrayForNode(nodeId) {
+  const rootIdx = collections.findIndex(c => c.id === nodeId);
+  if (rootIdx !== -1) return collections;
+  const parent = findParentInAll(nodeId);
+  if (parent && parent.children) return parent.children;
+  return null;
 }
 
-function loadState() {
+/** Reorder within the same parent list only (collections[] or parent.children). */
+function reorderAmongSiblings(dragId, targetId, placeAfter) {
+  if (dragId === targetId) return false;
+  const arr = getSiblingArrayForNode(dragId);
+  if (!arr || arr !== getSiblingArrayForNode(targetId)) return false;
+  const from = arr.findIndex(n => n.id === dragId);
+  let to = arr.findIndex(n => n.id === targetId);
+  if (from < 0 || to < 0) return false;
+  const [item] = arr.splice(from, 1);
+  if (from < to) to--;
+  if (placeAfter) to++;
+  arr.splice(to, 0, item);
+  return true;
+}
+
+// ── Persistence (localStorage + Electron userData disk cache) ──
+
+let _diskPersistTimer = null;
+
+function buildStateObject() {
+  const data = {
+    version: 2,
+    savedAt: Date.now(),
+    collections,
+    environments,
+    activeEnvId,
+    globalVars,
+    history,
+    openTabs: tabs.map(t => ({
+      id: t.id, name: t.name, method: t.method, url: t.url,
+      sourceId: t.sourceId, pinned: t.pinned
+    })),
+    activeTabId,
+    tabData: {},
+    openFolders: Array.from(openFolders)
+  };
+  for (const tid in tabData) {
+    const d = tabData[tid];
+    data.tabData[tid] = {
+      params: d.params, headers: d.headers, bodyForm: d.bodyForm,
+      bodyType: d.bodyType, body: d.body, graphqlVars: d.graphqlVars || '',
+      auth: d.auth, preRequestScript: d.preRequestScript || '',
+      testScript: d.testScript || '', pinned: d.pinned || false
+    };
+  }
+  return data;
+}
+
+function scheduleDiskPersist(jsonString) {
+  if (!window.electronAPI || typeof window.electronAPI.persistRestfyState !== 'function') return;
+  clearTimeout(_diskPersistTimer);
+  _diskPersistTimer = setTimeout(() => {
+    _diskPersistTimer = null;
+    window.electronAPI.persistRestfyState(jsonString).catch(() => {});
+  }, 400);
+}
+
+/**
+ * Saves collections, environments, tabs, history, etc.
+ * @param {{ forceDisk?: boolean }} opts - forceDisk: synchronous write to disk (e.g. before window close)
+ */
+function saveState(opts) {
+  const forceDisk = opts && opts.forceDisk;
+  let json;
   try {
-    const saved = localStorage.getItem('restfy_data');
-    if (!saved) return;
-    const d = JSON.parse(saved);
-    if (d.version === 2) {
-      collections = d.collections || [];
-      environments = d.environments || [];
-      activeEnvId = d.activeEnvId || null;
-      globalVars = d.globalVars || [];
-      history = d.history || [];
-      openFolders = new Set(d.openFolders || []);
-      if (d.openTabs && d.openTabs.length > 0) {
-        tabs = d.openTabs;
-        tabData = d.tabData || {};
-        activeTabId = d.activeTabId || tabs[0].id;
-      }
-    } else {
-      migrateV1(d);
+    json = JSON.stringify(buildStateObject());
+  } catch (e) {
+    console.error('Save failed (serialize):', e);
+    return;
+  }
+
+  try {
+    localStorage.setItem('restfy_data', json);
+  } catch (e) {
+    console.error('Save failed (localStorage):', e);
+    if (window.electronAPI && typeof window.electronAPI.persistRestfyState === 'function') {
+      window.electronAPI.persistRestfyState(json).catch(() => {});
     }
-  } catch (e) { console.error('Load failed:', e); }
+    if (forceDisk && window.electronAPI && typeof window.electronAPI.flushRestfyState === 'function') {
+      window.electronAPI.flushRestfyState(json);
+    }
+    return;
+  }
+
+  if (window.electronAPI && typeof window.electronAPI.persistRestfyState === 'function') {
+    if (forceDisk && typeof window.electronAPI.flushRestfyState === 'function') {
+      window.electronAPI.flushRestfyState(json);
+    } else {
+      scheduleDiskPersist(json);
+    }
+  }
+}
+
+function applyStateFromData(d) {
+  if (!d) return;
+  if (d.version === 2) {
+    collections = d.collections || [];
+    environments = d.environments || [];
+    activeEnvId = d.activeEnvId || null;
+    if (activeEnvId && !environments.some(e => e.id === activeEnvId)) activeEnvId = null;
+    globalVars = d.globalVars || [];
+    history = d.history || [];
+    openFolders = new Set(d.openFolders || []);
+    if (d.openTabs && d.openTabs.length > 0) {
+      tabs = d.openTabs;
+      tabData = d.tabData || {};
+      activeTabId = d.activeTabId || tabs[0].id;
+    }
+  } else {
+    migrateV1(d);
+  }
+}
+
+/**
+ * Loads from localStorage and/or disk cache (whichever is newer / has data).
+ * Disk backup recovers when localStorage is cleared or over quota.
+ */
+async function loadState() {
+  let local = null;
+  try {
+    const raw = localStorage.getItem('restfy_data');
+    if (raw) local = JSON.parse(raw);
+  } catch (e) {
+    console.error('Load failed (localStorage):', e);
+  }
+
+  let file = null;
+  if (window.electronAPI && typeof window.electronAPI.loadRestfyState === 'function') {
+    try {
+      const raw = await window.electronAPI.loadRestfyState();
+      if (raw) file = JSON.parse(raw);
+    } catch (e) {
+      console.error('Load failed (disk cache):', e);
+    }
+  }
+
+  let d = null;
+  if (local && file) {
+    const nLocal = (local.collections && local.collections.length) || 0;
+    const nFile = (file.collections && file.collections.length) || 0;
+    const tLocal = local.savedAt || 0;
+    const tFile = file.savedAt || 0;
+    if (nLocal === 0 && nFile > 0) d = file;
+    else if (nFile === 0 && nLocal > 0) d = local;
+    else d = tFile > tLocal ? file : local;
+    // Union environments from both stores so newer disk snapshot cannot wipe envs only in localStorage
+    const envMap = new Map();
+    (local.environments || []).forEach(e => { if (e && e.id) envMap.set(e.id, e); });
+    (file.environments || []).forEach(e => { if (e && e.id) envMap.set(e.id, e); });
+    const mergedEnvs = Array.from(envMap.values());
+    if (mergedEnvs.length) d = Object.assign({}, d, { environments: mergedEnvs });
+  } else {
+    d = local || file;
+  }
+
+  if (!d) return;
+
+  applyStateFromData(d);
+
+  try {
+    if (!local && file) {
+      localStorage.setItem('restfy_data', JSON.stringify(buildStateObject()));
+    } else if (file && local && d === file && (file.savedAt || 0) > (local.savedAt || 0)) {
+      localStorage.setItem('restfy_data', JSON.stringify(buildStateObject()));
+    }
+  } catch (_) { /* quota — disk remains source of truth */ }
 }
 
 function migrateV1(d) {
@@ -289,6 +410,18 @@ function resolveVariables(str) {
     if (g) return g.value;
     return match;
   });
+}
+
+/** Single key lookup for URL variable hover (same precedence as resolveVariables). */
+function lookupVariableKey(key) {
+  const env = environments.find(e => e.id === activeEnvId);
+  if (env) {
+    const v = env.variables.find(v => v.enabled !== false && v.key === key);
+    if (v) return { value: v.value, source: 'environment' };
+  }
+  const g = globalVars.find(v => v.enabled !== false && v.key === key);
+  if (g) return { value: g.value, source: 'global' };
+  return { value: null, source: 'unresolved' };
 }
 
 // ── History helpers ──

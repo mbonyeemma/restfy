@@ -2,7 +2,7 @@
 // CLOUD SYNC — Auth, sync, and account mgmt
 // ═══════════════════════════════════════════
 
-const CLOUD_DEFAULT = 'https://api.restify.online/';
+const CLOUD_DEFAULT = 'https://api.restify.online';
 const LS_CLOUD_SESSION = 'restify_cloud_session';
 const LS_CLOUD_SESSION_LEGACY = 'restfy_cloud_session';
 const LS_CLOUD_URL = 'restify_cloud_url';
@@ -13,7 +13,32 @@ function cloudBase() {
     localStorage.getItem(LS_CLOUD_URL) ||
     localStorage.getItem(LS_CLOUD_URL_LEGACY);
   const t = u && String(u).trim();
-  return t || CLOUD_DEFAULT;
+  const raw = t || CLOUD_DEFAULT;
+  return String(raw).replace(/\/+$/, '');
+}
+
+/** Absolute API URL (no double slashes). */
+function cloudApiUrl(path) {
+  const p = path.charAt(0) === '/' ? path : '/' + path;
+  return cloudBase() + p;
+}
+
+async function _cloudReadJson(resp) {
+  const text = await resp.text();
+  const trimmed = text.trimStart();
+  if (!trimmed || trimmed.startsWith('<')) {
+    throw new Error(
+      'Server returned a web page instead of JSON. Use the API base only (e.g. https://api.restify.online), not the web app URL.'
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON from server.');
+  }
+  if (!resp.ok) throw new Error(data.error || data.message || 'Request failed');
+  return data;
 }
 
 let _cloudUser = null;
@@ -67,14 +92,13 @@ function getCloudUser() {
 }
 
 async function cloudRegister(email, password, name) {
-  const resp = await fetch(cloudBase() + '/api/auth/register', {
+  const resp = await fetch(cloudApiUrl('/api/auth/register'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, name })
   });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || 'Registration failed');
+  const data = await _cloudReadJson(resp);
   _cloudUser = data.user;
   _cloudToken = data.token;
   _saveCloudSession();
@@ -82,13 +106,13 @@ async function cloudRegister(email, password, name) {
 }
 
 async function cloudLogin(email, password) {
-  const resp = await fetch(cloudBase() + '/api/auth/login', {
+  const resp = await fetch(cloudApiUrl('/api/auth/login'), {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || 'Login failed');
+  const data = await _cloudReadJson(resp);
   _cloudUser = data.user;
   _cloudToken = data.token;
   _saveCloudSession();
@@ -97,7 +121,7 @@ async function cloudLogin(email, password) {
 
 async function cloudLogout() {
   try {
-    await fetch(cloudBase() + '/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await fetch(cloudApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
   } catch (_) {}
   _cloudUser = null;
   _cloudToken = null;
@@ -112,26 +136,25 @@ async function cloudSync() {
   renderCloudStatus();
 
   try {
-    const colResp = await fetch(cloudBase() + '/api/collections/sync', {
+    const colResp = await fetch(cloudApiUrl('/api/collections/sync'), {
       method: 'POST',
       credentials: 'include',
       headers: _cloudHeaders(),
       body: JSON.stringify({ collections: collections, lastSyncAt: _lastSyncAt })
     });
-    if (!colResp.ok) {
-      if (colResp.status === 401) { void cloudLogout(); throw new Error('Session expired'); }
-      throw new Error('Sync failed');
+    if (colResp.status === 401) {
+      void cloudLogout();
+      throw new Error('Session expired');
     }
-    const colData = await colResp.json();
+    const colData = await _cloudReadJson(colResp);
 
-    const envResp = await fetch(cloudBase() + '/api/environments/sync', {
+    const envResp = await fetch(cloudApiUrl('/api/environments/sync'), {
       method: 'POST',
       credentials: 'include',
       headers: _cloudHeaders(),
       body: JSON.stringify({ environments: environments, globalVars: globalVars })
     });
-    if (!envResp.ok) throw new Error('Environment sync failed');
-    const envData = await envResp.json();
+    const envData = await _cloudReadJson(envResp);
 
     if (colData.collections) {
       collections.length = 0;
@@ -215,7 +238,7 @@ function _renderCloudLoginView() {
         <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
       </div>
       <div style="margin-top:16px;text-align:center">
-        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(cloudBase())}" onchange="localStorage.setItem('${LS_CLOUD_URL}', this.value);localStorage.removeItem('${LS_CLOUD_URL_LEGACY}')"></div>
+        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(cloudBase())}" onchange="(function(v){v=String(v).trim().replace(/\\/+$/, '');localStorage.setItem('${LS_CLOUD_URL}', v);localStorage.removeItem('${LS_CLOUD_URL_LEGACY}');})(this.value)"></div>
       </div>
     </div>
   `;

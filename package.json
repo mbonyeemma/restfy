@@ -27,18 +27,15 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icon.png"
+      "icon": "frontend/assets/icon.png"
     },
     "dmg": {
       "title": "Restfy"
     },
     "files": [
-      "app.html",
-      "docs.html",
+      "frontend/**",
       "main.js",
-      "preload.js",
-      "js/**",
-      "assets/**"
+      "preload.js"
     ]
   },
   "devDependencies": {

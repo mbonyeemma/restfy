@@ -12,7 +12,7 @@ async function shareCollection(colId) {
 
   if (_isWebMode) {
     try {
-      const resp = await fetch('/api/share/quick', {
+      const resp = await fetch(restfyApiUrl('/api/share/quick'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ collection: shareData, name: col.name })
@@ -93,7 +93,7 @@ async function checkAutoImport() {
   if (!importId) return;
 
   try {
-    const resp = await fetch(`/api/shared/${importId}`);
+    const resp = await fetch(restfyApiUrl(`/api/shared/${importId}`));
     if (!resp.ok) throw new Error('Collection not found');
     const data = await resp.json();
 
@@ -110,12 +110,4 @@ async function checkAutoImport() {
   } catch (err) {
     showNotif('Import failed: ' + err.message, 'error');
   }
-}
-
-function restfyFetch(url, opts) {
-  if (_isWebMode && url.startsWith('http')) {
-    const proxyUrl = '/api/proxy?' + new URLSearchParams({ url });
-    return fetch(proxyUrl, opts);
-  }
-  return fetch(url, opts);
 }

@@ -55,22 +55,20 @@ The built `.dmg` and `.zip` will be in the `dist/` folder.
 
 ```
 restfy/
-├── app.html           # Main UI (HTML + CSS)
+├── frontend/          # Static web UI (deploy separately: Netlify, S3, etc.)
+│   ├── app.html
+│   ├── docs.html
+│   ├── assets/
+│   └── js/
+├── server/            # Express API (deploy separately: Railway, etc.)
 ├── main.js            # Electron main process
 ├── preload.js         # Context bridge for IPC
-├── package.json       # Project config & build settings
-├── assets/
-│   └── icon.png       # App / dock / favicon (brand mark)
-├── js/
-│   ├── utils.js       # Utility functions
-│   ├── state.js       # Data model & persistence
-│   ├── ui.js          # UI rendering & interaction
-│   ├── http.js        # HTTP request execution
-│   ├── codegen.js     # Import/export/code generation
-│   └── scripts.js     # Pre-request & test script engine
+├── package.json       # Desktop app build
 └── promo-website/
     └── index.html     # Landing page
 ```
+
+**Split deploy:** set `window.__RESTFY_API_BASE__` on the static site to your API origin (see `frontend/js/api-base.js`). On the API, set `RESTFY_WEB_URL` to your static app URL so share links point at `/docs/…` and `/?import=…`.
 
 ## Importing from Postman
 

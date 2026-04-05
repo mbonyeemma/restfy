@@ -1,10 +1,6 @@
-import path from "path";
 import { config } from "dotenv";
 
 config({ quiet: true });
-
-/** From `server/dist/config` → Restfy app root (`postWoman/`, sibling of `server/`) */
-export const APP_ROOT = path.resolve(__dirname, "../../..");
 
 export const PORT = Number(process.env.PORT) || 4000;
 

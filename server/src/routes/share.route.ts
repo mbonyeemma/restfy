@@ -21,18 +21,37 @@ type SharedRow = {
   updated_at: number;
 };
 
+function trimTrailingSlash(s: string): string {
+  return s.replace(/\/+$/, "");
+}
+
+/** Public URL of the static web app (doc + import links). Defaults to request host. */
+function webPublicBase(req: Request): string {
+  const env = process.env.RESTFY_WEB_URL?.trim();
+  if (env) return trimTrailingSlash(env);
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+/** Public URL of this API (for apiUrl in share JSON). Defaults to request host. */
+function apiPublicBase(req: Request): string {
+  const env = process.env.RESTFY_API_PUBLIC_URL?.trim();
+  if (env) return trimTrailingSlash(env);
+  return `${req.protocol}://${req.get("host")}`;
+}
+
 function buildShareResponse(
   req: Request,
   id: string,
   slug: string
 ): { id: string; slug: string; docUrl: string; importUrl: string; apiUrl: string } {
-  const base = `${req.protocol}://${req.get("host")}`;
+  const web = webPublicBase(req);
+  const api = apiPublicBase(req);
   return {
     id,
     slug,
-    docUrl: `${base}/docs/${slug}`,
-    importUrl: `${base}/?import=${id}`,
-    apiUrl: `${base}/api/shared/${id}`,
+    docUrl: `${web}/docs/${slug}`,
+    importUrl: `${web}/?import=${id}`,
+    apiUrl: `${api}/api/shared/${id}`,
   };
 }
 

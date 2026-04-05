@@ -1,8 +1,7 @@
 import express, { type Application, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import path from "path";
-import { APP_ROOT, PORT } from "./config/constants";
+import { PORT } from "./config/constants";
 import { registerProxyRoutes } from "./routes/proxy.route";
 import { registerRestRoutes } from "./routes/index";
 
@@ -44,24 +43,6 @@ export function createApp(): Application {
 
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", version: "1.0.0", time: new Date().toISOString() });
-  });
-
-  app.get("/docs/:slug", (_req: Request, res: Response) => {
-    res.sendFile(path.join(APP_ROOT, "docs.html"));
-  });
-
-  app.use(
-    express.static(APP_ROOT, {
-      index: "app.html",
-      extensions: ["html"],
-      setHeaders(res, filePath) {
-        if (filePath.endsWith(".html")) res.set("Cache-Control", "no-cache");
-      },
-    })
-  );
-
-  app.get("/", (_req: Request, res: Response) => {
-    res.sendFile(path.join(APP_ROOT, "app.html"));
   });
 
   app.use(

@@ -27,7 +27,7 @@ function createWindow() {
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#1a1a1a',
-    icon: path.join(__dirname, 'frontend', 'assets', 'icon.png'),
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -36,7 +36,7 @@ function createWindow() {
     }
   });
 
-  win.loadFile(path.join(__dirname, 'frontend', 'app.html'));
+  win.loadFile(path.join(__dirname, 'app.html'));
 }
 
 ipcMain.on('window-minimize', () => { if (win) win.minimize(); });

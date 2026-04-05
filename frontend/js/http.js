@@ -122,7 +122,7 @@ async function sendRequest() {
   try {
     const opts = { method, headers, signal };
     if (body) opts.body = body;
-    const response = await restfyFetch(url, opts);
+    const response = await restifyFetch(url, opts);
     const elapsed = Date.now() - startTime;
     const respText = await response.text();
     showResponse(response, respText, elapsed, url, method);

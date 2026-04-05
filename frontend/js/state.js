@@ -16,6 +16,17 @@ let currentBodyType = 'none';
 let pendingImport = null;
 let editingNodeId = null;
 
+const LS_DATA = 'restify_data';
+const LS_DATA_LEGACY = 'restfy_data';
+
+function lsGetDataRaw() {
+  return localStorage.getItem(LS_DATA) ?? localStorage.getItem(LS_DATA_LEGACY);
+}
+
+function lsSetDataRaw(json) {
+  localStorage.setItem(LS_DATA, json);
+}
+
 function makeDefaultKv() {
   return [{ key: '', value: '', enabled: true }];
 }
@@ -259,11 +270,11 @@ function buildStateObject() {
 }
 
 function scheduleDiskPersist(jsonString) {
-  if (!window.electronAPI || typeof window.electronAPI.persistRestfyState !== 'function') return;
+  if (!window.electronAPI || typeof window.electronAPI.persistRestifyState !== 'function') return;
   clearTimeout(_diskPersistTimer);
   _diskPersistTimer = setTimeout(() => {
     _diskPersistTimer = null;
-    window.electronAPI.persistRestfyState(jsonString).catch(() => {});
+    window.electronAPI.persistRestifyState(jsonString).catch(() => {});
   }, 400);
 }
 
@@ -282,21 +293,21 @@ function saveState(opts) {
   }
 
   try {
-    localStorage.setItem('restfy_data', json);
+    lsSetDataRaw(json);
   } catch (e) {
     console.error('Save failed (localStorage):', e);
-    if (window.electronAPI && typeof window.electronAPI.persistRestfyState === 'function') {
-      window.electronAPI.persistRestfyState(json).catch(() => {});
+    if (window.electronAPI && typeof window.electronAPI.persistRestifyState === 'function') {
+      window.electronAPI.persistRestifyState(json).catch(() => {});
     }
-    if (forceDisk && window.electronAPI && typeof window.electronAPI.flushRestfyState === 'function') {
-      window.electronAPI.flushRestfyState(json);
+    if (forceDisk && window.electronAPI && typeof window.electronAPI.flushRestifyState === 'function') {
+      window.electronAPI.flushRestifyState(json);
     }
     return;
   }
 
-  if (window.electronAPI && typeof window.electronAPI.persistRestfyState === 'function') {
-    if (forceDisk && typeof window.electronAPI.flushRestfyState === 'function') {
-      window.electronAPI.flushRestfyState(json);
+  if (window.electronAPI && typeof window.electronAPI.persistRestifyState === 'function') {
+    if (forceDisk && typeof window.electronAPI.flushRestifyState === 'function') {
+      window.electronAPI.flushRestifyState(json);
     } else {
       scheduleDiskPersist(json);
     }
@@ -330,16 +341,16 @@ function applyStateFromData(d) {
 async function loadState() {
   let local = null;
   try {
-    const raw = localStorage.getItem('restfy_data');
+    const raw = lsGetDataRaw();
     if (raw) local = JSON.parse(raw);
   } catch (e) {
     console.error('Load failed (localStorage):', e);
   }
 
   let file = null;
-  if (window.electronAPI && typeof window.electronAPI.loadRestfyState === 'function') {
+  if (window.electronAPI && typeof window.electronAPI.loadRestifyState === 'function') {
     try {
-      const raw = await window.electronAPI.loadRestfyState();
+      const raw = await window.electronAPI.loadRestifyState();
       if (raw) file = JSON.parse(raw);
     } catch (e) {
       console.error('Load failed (disk cache):', e);
@@ -371,9 +382,9 @@ async function loadState() {
 
   try {
     if (!local && file) {
-      localStorage.setItem('restfy_data', JSON.stringify(buildStateObject()));
+      lsSetDataRaw(JSON.stringify(buildStateObject()));
     } else if (file && local && d === file && (file.savedAt || 0) > (local.savedAt || 0)) {
-      localStorage.setItem('restfy_data', JSON.stringify(buildStateObject()));
+      lsSetDataRaw(JSON.stringify(buildStateObject()));
     }
   } catch (_) { /* quota — disk remains source of truth */ }
 }

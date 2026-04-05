@@ -58,7 +58,7 @@ async function importFromUrl() {
   status.style.color = 'var(--text-dim)';
 
   try {
-    const resp = await restfyFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+    const resp = await restifyFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const text = await resp.text();
     const data = JSON.parse(text);
@@ -546,7 +546,7 @@ async function runCollection(colId) {
 
     const start = Date.now();
     try {
-      const resp = await restfyFetch(reqCtx.url, opts);
+      const resp = await restifyFetch(reqCtx.url, opts);
       const respText = await resp.text();
       let testResults = [];
       const respCtx = { status: resp.status, statusText: resp.statusText, body: respText, headers: Object.fromEntries(resp.headers.entries()) };

@@ -2,7 +2,12 @@ import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
 import { authMiddleware } from "../auth";
 import db from "../db";
-import { ANONYMOUS_USER_ID } from "../config/constants";
+import {
+  ANONYMOUS_USER_ID,
+  PUBLIC_API_HOST,
+  PUBLIC_API_ORIGIN,
+  PUBLIC_APP_ORIGIN,
+} from "../config/constants";
 
 const router = Router();
 
@@ -25,17 +30,30 @@ function trimTrailingSlash(s: string): string {
   return s.replace(/\/+$/, "");
 }
 
-/** Public URL of the static web app (doc + import links). Defaults to request host. */
+function hostNoPort(req: Request): string {
+  return (req.get("host") || "").split(":")[0].toLowerCase();
+}
+
+/** Public URL of the static web app (doc + import links). */
 function webPublicBase(req: Request): string {
-  const env = process.env.RESTFY_WEB_URL?.trim();
+  const env =
+    process.env.RESTIFY_WEB_URL?.trim() || process.env.RESTFY_WEB_URL?.trim();
   if (env) return trimTrailingSlash(env);
+  if (hostNoPort(req) === PUBLIC_API_HOST) {
+    return PUBLIC_APP_ORIGIN;
+  }
   return `${req.protocol}://${req.get("host")}`;
 }
 
-/** Public URL of this API (for apiUrl in share JSON). Defaults to request host. */
+/** Public URL of this API (for apiUrl in share JSON). */
 function apiPublicBase(req: Request): string {
-  const env = process.env.RESTFY_API_PUBLIC_URL?.trim();
+  const env =
+    process.env.RESTIFY_API_PUBLIC_URL?.trim() ||
+    process.env.RESTFY_API_PUBLIC_URL?.trim();
   if (env) return trimTrailingSlash(env);
+  if (hostNoPort(req) === PUBLIC_API_HOST) {
+    return PUBLIC_API_ORIGIN;
+  }
   return `${req.protocol}://${req.get("host")}`;
 }
 

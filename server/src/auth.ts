@@ -3,7 +3,12 @@ import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 import type { Request, Response, NextFunction } from "express";
 import db from "./db";
-import { JWT_EXPIRES, JWT_SECRET } from "./config/constants";
+import {
+  AUTH_COOKIE_DOMAIN,
+  AUTH_COOKIE_NAME,
+  JWT_EXPIRES,
+  JWT_SECRET,
+} from "./config/constants";
 
 export function hashPassword(plain: string): string {
   return bcrypt.hashSync(plain, 10);
@@ -63,14 +68,44 @@ export function login(
   return { user: { id: user.id, email: user.email, name: user.name }, token };
 }
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+const COOKIE_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function setAuthCookie(res: Response, token: string): void {
+  if (!AUTH_COOKIE_DOMAIN) return;
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    domain: AUTH_COOKIE_DOMAIN,
+    maxAge: COOKIE_MAX_MS,
+    path: "/",
+  });
+}
+
+export function clearAuthCookie(res: Response): void {
+  if (!AUTH_COOKIE_DOMAIN) return;
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    domain: AUTH_COOKIE_DOMAIN,
+    path: "/",
+  });
+}
+
+function tokenFromRequest(req: Request): string | null {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  if (header?.startsWith("Bearer ")) return header.slice(7).trim() || null;
+  const c = req.cookies?.[AUTH_COOKIE_NAME];
+  if (typeof c === "string" && c.length > 0) return c;
+  return null;
+}
+
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const token = tokenFromRequest(req);
+  if (!token) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
   try {
-    const payload = verifyToken(header.slice(7));
+    const payload = verifyToken(token);
     const sub = payload.sub;
     if (typeof sub !== "string") {
       res.status(401).json({ error: "Invalid or expired token" });

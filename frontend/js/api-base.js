@@ -1,8 +1,10 @@
 /**
- * API base for split deploy: static frontend + separate API server.
- * Before other scripts, or via your static host inject:
- *   <script>window.__RESTFY_API_BASE__ = 'https://your-api.example.com';</script>
- * Empty / unset = same origin (monorepo dev or reverse proxy).
+ * API base for split deploy (e.g. app at https://app.restify.online, API at https://api.restify.online).
+ * Production: js/config-domains.js sets __RESTIFY_API_BASE__ on app.restify.online.
+ * Override manually:
+ *   window.__RESTIFY_API_BASE__ = 'https://api.restify.online'
+ * Legacy: window.__RESTFY_API_BASE__
+ * Empty / unset = same origin (Electron, localhost, or reverse proxy).
  */
 (function () {
   function trimSlash(s) {
@@ -11,24 +13,26 @@
 
   function getApiBase() {
     if (typeof window === 'undefined') return '';
-    var w = window.__RESTFY_API_BASE__;
+    var w = window.__RESTIFY_API_BASE__;
     if (w != null && String(w).trim() !== '') return trimSlash(w);
+    var leg = window.__RESTFY_API_BASE__;
+    if (leg != null && String(leg).trim() !== '') return trimSlash(leg);
     return '';
   }
 
-  window.getRestfyApiBase = getApiBase;
-  window.restfyApiUrl = function (path) {
+  window.getRestifyApiBase = getApiBase;
+  window.restifyApiUrl = function (path) {
     var p = path.charAt(0) === '/' ? path : '/' + path;
     var base = getApiBase();
     return base ? base + p : p;
   };
 
   /** Web: cross-origin http(s) via server proxy. Electron: direct fetch. */
-  window.restfyFetch = function (url, opts) {
+  window.restifyFetch = function (url, opts) {
     var isElectron = typeof window !== 'undefined' && window.electronAPI;
     if (!isElectron && typeof url === 'string' && url.indexOf('http') === 0) {
       return fetch(
-        window.restfyApiUrl('/api/proxy') + '?' + new URLSearchParams({ url: url }),
+        window.restifyApiUrl('/api/proxy') + '?' + new URLSearchParams({ url: url }),
         opts
       );
     }

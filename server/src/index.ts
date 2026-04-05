@@ -10,7 +10,7 @@ const start = (): void => {
   try {
     const app = createApp();
     server = app.listen(PORT, () => {
-      console.log(`\n  Restfy Server — http://localhost:${PORT}`);
+      console.log(`\n  Restify server — http://localhost:${PORT}`);
       console.log(`  API            — http://localhost:${PORT}/api`);
       console.log(`  Health check   — http://localhost:${PORT}/api/health\n`);
     });

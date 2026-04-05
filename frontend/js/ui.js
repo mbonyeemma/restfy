@@ -885,7 +885,7 @@ async function clearHistory() {
 // ── Auto-generated Headers ──
 
 const AUTO_HEADERS = [
-  { key: 'User-Agent', value: 'Restfy/2.0' },
+  { key: 'User-Agent', value: 'Restify/2.0' },
   { key: 'Accept', value: '*/*' },
   { key: 'Accept-Encoding', value: 'gzip, deflate, br' },
   { key: 'Connection', value: 'keep-alive' }
@@ -1343,7 +1343,7 @@ async function fetchOAuth2Token() {
     body.append('client_id', state.clientId);
     body.append('client_secret', state.clientSecret);
     if (state.scope) body.append('scope', state.scope);
-    const resp = await restfyFetch(resolveVariables(state.tokenUrl), {
+    const resp = await restifyFetch(resolveVariables(state.tokenUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString()
@@ -1369,13 +1369,13 @@ function toggleTheme() {
   const current = html.getAttribute('data-theme') || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', next);
-  localStorage.setItem('restfy_theme', next);
+  localStorage.setItem('restify_theme', next);
   const btn = document.getElementById('themeToggleBtn');
   if (btn) btn.textContent = next === 'dark' ? '\u{263E}' : '\u{2600}';
 }
 
 function loadTheme() {
-  const saved = localStorage.getItem('restfy_theme') || 'dark';
+  const saved = localStorage.getItem('restify_theme') || localStorage.getItem('restfy_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
   const btn = document.getElementById('themeToggleBtn');
   if (btn) btn.textContent = saved === 'dark' ? '\u{263E}' : '\u{2600}';
@@ -1759,7 +1759,7 @@ function renderEnvSelector() {
 
 function exportEnvironments() {
   const data = {
-    _type: 'restfy_environments',
+    _type: 'restify_environments',
     version: 1,
     environments: deepClone(environments),
     globalVars: deepClone(globalVars)
@@ -1767,7 +1767,7 @@ function exportEnvironments() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'restfy-environments.json';
+  a.download = 'restify-environments.json';
   a.click();
   URL.revokeObjectURL(a.href);
   showNotif('Environments exported', 'success');
@@ -1780,7 +1780,7 @@ function importEnvironments(event) {
   reader.onload = function() {
     try {
       const data = JSON.parse(reader.result);
-      if (data._type !== 'restfy_environments' || !Array.isArray(data.environments)) {
+      if ((data._type !== 'restify_environments' && data._type !== 'restfy_environments') || !Array.isArray(data.environments)) {
         showNotif('Invalid environment file', 'error');
         return;
       }

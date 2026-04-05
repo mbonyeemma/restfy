@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import db from "../db";
-import { register, login, authMiddleware } from "../auth";
+import { register, login, authMiddleware, setAuthCookie, clearAuthCookie } from "../auth";
 
 const router = Router();
 
@@ -25,6 +25,7 @@ router.post("/register", (req: Request, res: Response) => {
     res.status(409).json({ error: result.error });
     return;
   }
+  setAuthCookie(res, result.token);
   res.status(201).json(result);
 });
 
@@ -40,7 +41,14 @@ router.post("/login", (req: Request, res: Response) => {
     res.status(401).json({ error: result.error });
     return;
   }
+  setAuthCookie(res, result.token);
   res.json(result);
+});
+
+/** Clears cross-subdomain auth cookie (e.g. from restify.online promo). */
+router.post("/logout", (req: Request, res: Response) => {
+  clearAuthCookie(res);
+  res.status(204).send();
 });
 
 router.get("/me", authMiddleware, (req: Request, res: Response) => {

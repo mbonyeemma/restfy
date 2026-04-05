@@ -2,7 +2,19 @@
 // CLOUD SYNC — Auth, sync, and account mgmt
 // ═══════════════════════════════════════════
 
-const CLOUD_BASE = "https://restfy-production.up.railway.app/"
+const CLOUD_DEFAULT = 'https://api.restify.online/';
+const LS_CLOUD_SESSION = 'restify_cloud_session';
+const LS_CLOUD_SESSION_LEGACY = 'restfy_cloud_session';
+const LS_CLOUD_URL = 'restify_cloud_url';
+const LS_CLOUD_URL_LEGACY = 'restfy_cloud_url';
+
+function cloudBase() {
+  const u =
+    localStorage.getItem(LS_CLOUD_URL) ||
+    localStorage.getItem(LS_CLOUD_URL_LEGACY);
+  const t = u && String(u).trim();
+  return t || CLOUD_DEFAULT;
+}
 
 let _cloudUser = null;
 let _cloudToken = null;
@@ -17,7 +29,9 @@ function _cloudHeaders() {
 
 function _loadCloudSession() {
   try {
-    const s = localStorage.getItem('restfy_cloud_session');
+    const s =
+      localStorage.getItem(LS_CLOUD_SESSION) ||
+      localStorage.getItem(LS_CLOUD_SESSION_LEGACY);
     if (s) {
       const parsed = JSON.parse(s);
       _cloudUser = parsed.user;
@@ -29,13 +43,18 @@ function _loadCloudSession() {
 
 function _saveCloudSession() {
   if (_cloudUser && _cloudToken) {
-    localStorage.setItem('restfy_cloud_session', JSON.stringify({
-      user: _cloudUser,
-      token: _cloudToken,
-      lastSyncAt: _lastSyncAt
-    }));
+    localStorage.setItem(
+      LS_CLOUD_SESSION,
+      JSON.stringify({
+        user: _cloudUser,
+        token: _cloudToken,
+        lastSyncAt: _lastSyncAt
+      })
+    );
+    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
   } else {
-    localStorage.removeItem('restfy_cloud_session');
+    localStorage.removeItem(LS_CLOUD_SESSION);
+    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
   }
 }
 
@@ -48,8 +67,9 @@ function getCloudUser() {
 }
 
 async function cloudRegister(email, password, name) {
-  const resp = await fetch(CLOUD_BASE + '/api/auth/register', {
+  const resp = await fetch(cloudBase() + '/api/auth/register', {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, name })
   });
@@ -62,7 +82,7 @@ async function cloudRegister(email, password, name) {
 }
 
 async function cloudLogin(email, password) {
-  const resp = await fetch(CLOUD_BASE + '/api/auth/login', {
+  const resp = await fetch(cloudBase() + '/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
@@ -75,7 +95,10 @@ async function cloudLogin(email, password) {
   return data;
 }
 
-function cloudLogout() {
+async function cloudLogout() {
+  try {
+    await fetch(cloudBase() + '/api/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch (_) {}
   _cloudUser = null;
   _cloudToken = null;
   _lastSyncAt = 0;
@@ -89,19 +112,21 @@ async function cloudSync() {
   renderCloudStatus();
 
   try {
-    const colResp = await fetch(CLOUD_BASE + '/api/collections/sync', {
+    const colResp = await fetch(cloudBase() + '/api/collections/sync', {
       method: 'POST',
+      credentials: 'include',
       headers: _cloudHeaders(),
       body: JSON.stringify({ collections: collections, lastSyncAt: _lastSyncAt })
     });
     if (!colResp.ok) {
-      if (colResp.status === 401) { cloudLogout(); throw new Error('Session expired'); }
+      if (colResp.status === 401) { void cloudLogout(); throw new Error('Session expired'); }
       throw new Error('Sync failed');
     }
     const colData = await colResp.json();
 
-    const envResp = await fetch(CLOUD_BASE + '/api/environments/sync', {
+    const envResp = await fetch(cloudBase() + '/api/environments/sync', {
       method: 'POST',
+      credentials: 'include',
       headers: _cloudHeaders(),
       body: JSON.stringify({ environments: environments, globalVars: globalVars })
     });
@@ -190,7 +215,7 @@ function _renderCloudLoginView() {
         <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
       </div>
       <div style="margin-top:16px;text-align:center">
-        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(CLOUD_BASE)}" onchange="localStorage.setItem('restfy_cloud_url', this.value)"></div>
+        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(cloudBase())}" onchange="localStorage.setItem('${LS_CLOUD_URL}', this.value);localStorage.removeItem('${LS_CLOUD_URL_LEGACY}')"></div>
       </div>
     </div>
   `;
@@ -247,7 +272,7 @@ function _renderCloudAccountView() {
   body.innerHTML = `
     <div style="text-align:center;margin-bottom:20px">
       <div class="cloud-avatar-large">${(_cloudUser.name || _cloudUser.email || '?').charAt(0).toUpperCase()}</div>
-      <div style="font-size:16px;font-weight:600;margin-top:8px">${escHtml(_cloudUser.name || 'Restfy User')}</div>
+      <div style="font-size:16px;font-weight:600;margin-top:8px">${escHtml(_cloudUser.name || 'Restify User')}</div>
       <div style="font-size:13px;color:var(--text-dim)">${escHtml(_cloudUser.email)}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">

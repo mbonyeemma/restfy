@@ -1,4 +1,5 @@
 import express, { type Application, type Request, type Response, type NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { PORT } from "./config/constants";
@@ -21,6 +22,7 @@ export function createApp(): Application {
     })
   );
 
+  app.use(cookieParser());
   app.use(express.json({ limit: "50mb" }));
 
   const authLimiter = rateLimit({

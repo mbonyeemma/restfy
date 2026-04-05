@@ -21,7 +21,8 @@ npm install
 |------|---------|
 | Web UI (static server) | `npm run dev` or `npm start` |
 | Desktop (Electron) | `npm run electron` |
-| macOS installer (local) | `npm run build:dmg` → artifacts under `frontend/dist/` |
+| macOS installer (local, no upload) | `npm run build:dmg` → artifacts under `frontend/dist/` |
+| Publish DMG + updater metadata to GitHub Releases | Put `GH_TOKEN` in `frontend/.env` (copy from `.env.example`) then `npm run publish:dmg` — `.env` is gitignored |
 
 API server (optional, for cloud/share/sync):
 
@@ -44,8 +45,6 @@ npm run dev
 |------|------------------|
 | `frontend/` | Electron `main.js` / `preload.js`, `app.html`, `docs.html`, `js/*`, `assets/` |
 | `server/` | Express API, SQLite, auth, share/proxy routes |
-| `.github/workflows/` | CI (e.g. macOS DMG release build) |
-
 ## Code of conduct
 
 Be respectful in issues and PRs. Disagreement is fine; harassment is not.

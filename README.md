@@ -12,14 +12,14 @@ A small, **open-source** API client for **macOS** (Electron) and the **browser**
 
 ## Download (macOS DMG)
 
-Pre-built disk images are attached to **GitHub Releases** (built in CI on macOS).
+Pre-built disk images are attached to **GitHub Releases** (published from a maintainer machine with a GitHub token).
 
 1. Open **[Releases](https://github.com/mbonyeemma/restfy/releases)**.
 2. Choose the latest **tag** (or the version you want).
 3. Download the **`.dmg`** file from the release assets.
 4. Open the DMG, drag **Restify** into Applications, launch from there.
 
-**Note:** CI builds are **unsigned** (no Apple Developer ID in GitHub Actions). macOS may show Gatekeeper warnings—you can still open via **System Settings → Privacy & Security** or right-click → Open, depending on your OS version. For a fully trusted build, sign and notarize your own copy from source (see below).
+**Note:** These builds are **unsigned** unless you sign them yourself. macOS may show Gatekeeper warnings—you can still open via **System Settings → Privacy & Security** or right-click → Open, depending on your OS version. For a fully trusted build, sign and notarize your own copy from source (see below).
 
 **Use in the browser** (no install): [app.restify.online](https://app.restify.online/)
 
@@ -36,9 +36,6 @@ Everything for the app and API lives under this repo root:
 ├── CONTRIBUTING.md           # How to contribute
 ├── docs/
 │   └── OPEN_SOURCE.md        # Why MIT, forking, philosophy
-├── .github/
-│   └── workflows/
-│       └── release-mac-dmg.yml   # Builds & uploads DMG on release
 ├── frontend/                 # Electron + static web UI (main “app”)
 │   ├── package.json          # npm scripts, electron-builder
 │   ├── main.js               # Electron main process
@@ -92,9 +89,20 @@ npm run build:dmg
 
 Output: `frontend/dist/` (`.dmg` and related artifacts).
 
+**Publish to GitHub Releases** (maintainers, macOS): create the release/tag on GitHub first, bump `frontend/package.json` `version` to match the tag, then from `frontend/`:
+
+1. Copy `frontend/.env.example` to `frontend/.env` and set `GH_TOKEN=` to a classic PAT with **repo** scope (GitHub → Settings → Developer settings → Personal access tokens).
+2. Run:
+
+```bash
+npm run publish:dmg
+```
+
+The script loads `.env` via `dotenv-cli` (that file is **gitignored**—never commit it). You can still use `export GH_TOKEN=…` in the shell instead if you prefer.
+
 **Version:** The app version lives in `frontend/package.json` (`version`). The web UI also reads `frontend/js/app-version.js` (`RESTIFY_APP_VERSION`)—keep both in sync when you ship a new release.
 
-**In-app updates (macOS):** Packaged builds use [electron-updater](https://www.electron.build/auto-update) against **GitHub Releases**. CI uploads the DMG plus `latest-mac.yml` and `.blockmap` files so the app can detect and download newer tags. After publishing **v1.1.0**, users on **1.0.0** get a background check (~5s after launch), then a prompt to restart when the update is ready. Apple code signing + notarization improves Gatekeeper behavior but is not required for the updater to fetch from GitHub.
+**In-app updates (macOS):** Packaged builds use [electron-updater](https://www.electron.build/auto-update) against **GitHub Releases**. `npm run publish:dmg` uploads the DMG plus `latest-mac.yml` and `.blockmap` so the app can detect and download newer versions. After publishing **v1.1.0**, users on **1.0.0** get a background check (~5s after launch), then a prompt to restart when the update is ready. Apple code signing + notarization improves Gatekeeper behavior but is not required for the updater to fetch from GitHub.
 
 ### API server (optional)
 

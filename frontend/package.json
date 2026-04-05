@@ -12,7 +12,8 @@
     "server:build": "npm --prefix ../server run build",
     "server:start": "npm --prefix ../server run start",
     "build:mac": "electron-builder --mac",
-    "build:dmg": "electron-builder --mac dmg"
+    "build:dmg": "electron-builder --mac dmg",
+    "publish:dmg": "dotenv -e .env -- electron-builder --mac dmg --publish always"
   },
   "repository": {
     "type": "git",
@@ -50,6 +51,7 @@
     ]
   },
   "devDependencies": {
+    "dotenv-cli": "^8.0.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.0.0",
     "http-server": "^14.1.1"

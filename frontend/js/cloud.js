@@ -2,7 +2,7 @@
 // CLOUD SYNC — Auth, sync, and account mgmt
 // ═══════════════════════════════════════════
 
-const CLOUD_BASE = localStorage.getItem('restfy_cloud_url') || 'http://localhost:4000';
+const CLOUD_BASE = "https://restfy-production.up.railway.app/"
 
 let _cloudUser = null;
 let _cloudToken = null;

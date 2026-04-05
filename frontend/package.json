@@ -37,6 +37,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "index.html",
       "app.html",
       "docs.html",
       "js/**",

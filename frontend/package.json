@@ -4,6 +4,9 @@
   "description": "Restify — A free, open-source Postman alternative for macOS",
   "main": "out/main/index.js",
   "scripts": {
+    "start": "npm run build && node scripts/serve-web.cjs",
+    "serve:web": "node scripts/serve-web.cjs",
+    "build:web": "electron-vite build",
     "dev": "electron-vite dev",
     "dev:web": "electron-vite dev --mode web",
     "build": "electron-vite build",
@@ -58,10 +61,10 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.0.0",
     "electron-vite": "^5.0.0",
-    "http-server": "^14.1.1",
     "typescript": "^6.0.2"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "http-server": "^14.1.1"
   }
 }

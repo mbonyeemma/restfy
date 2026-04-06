@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, nativeImage, Menu } from 'electron'
+import { app, BrowserWindow, session, ipcMain, nativeImage, Menu, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, writeFileSync, copyFileSync } from 'fs'
 import { writeFile, readFile } from 'fs/promises'
@@ -57,6 +57,16 @@ function createWindow(): void {
     }
   })
 
+  // Open http(s) links (e.g. published docs) in the default browser instead of a new Electron window.
+  win.webContents.setWindowOpenHandler((details) => {
+    const url = details.url
+    if (/^https?:\/\//i.test(url)) {
+      void shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -72,6 +82,13 @@ ipcMain.on('window-maximize', () => {
   }
 })
 ipcMain.on('window-close', () => { win?.close() })
+
+ipcMain.handle('open-external', async (_e, url: string) => {
+  const u = typeof url === 'string' ? url.trim() : ''
+  if (!/^https?:\/\//i.test(u)) return false
+  await shell.openExternal(u)
+  return true
+})
 
 ipcMain.handle('persist-restify-state', async (_e, jsonString: string) => {
   try {

@@ -50,6 +50,14 @@ function createWindow() {
       preload: path.join(__dirname, "../preload/index.js")
     }
   });
+  win.webContents.setWindowOpenHandler((details) => {
+    const url = details.url;
+    if (/^https?:\/\//i.test(url)) {
+      void electron.shell.openExternal(url);
+      return { action: "deny" };
+    }
+    return { action: "allow" };
+  });
   if (process.env["ELECTRON_RENDERER_URL"]) {
     win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {

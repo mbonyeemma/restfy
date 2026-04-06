@@ -1599,7 +1599,7 @@ export function setupInputVarTooltips() {
 export async function renderSidebarAppVersion() {
   const row = document.getElementById('sidebarVersionRow')
   if (!row) return
-  let v = typeof (window as any).RESTIFY_APP_VERSION === 'string' ? (window as any).RESTIFY_APP_VERSION : '1.0.0'
+  let v = typeof (window as any).RESTIFY_APP_VERSION === 'string' ? (window as any).RESTIFY_APP_VERSION : '1.0.1'
   if (window.electronAPI?.getAppVersion) {
     try { v = await window.electronAPI.getAppVersion() } catch {}
   }

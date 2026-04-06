@@ -69,7 +69,22 @@ function showShareResult(result: any, name: string): void {
   if (nameEl) nameEl.textContent = name
   if (docUrlEl) docUrlEl.value = result.docUrl
   if (importUrlEl) importUrlEl.value = result.importUrl
-  if (docLinkEl) docLinkEl.href = result.docUrl
+  if (docLinkEl) {
+    docLinkEl.href = result.docUrl
+    docLinkEl.rel = 'noopener noreferrer'
+    docLinkEl.onclick = (e) => {
+      e.preventDefault()
+      const u = (docUrlEl?.value || result.docUrl || '').trim()
+      if (!u) return
+      const api = (window as any).electronAPI as { openExternal?: (x: string) => Promise<boolean> } | undefined
+      if (api?.openExternal) {
+        void api.openExternal(u)
+      } else {
+        window.open(u, '_blank', 'noopener,noreferrer')
+      }
+      closeShareModal()
+    }
+  }
   shareModal?.classList.add('open')
 }
 

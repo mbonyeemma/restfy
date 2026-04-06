@@ -1,6 +1,6 @@
 {
   "name": "restify-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Restify — A free, open-source Postman alternative for macOS",
   "main": "out/main/index.js",
   "scripts": {
@@ -16,8 +16,8 @@
     "server:build": "npm --prefix ../server run build",
     "server:start": "npm --prefix ../server run start",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:dmg": "npm run build && electron-builder --mac dmg",
-    "publish:dmg": "npm run build && dotenv -e .env -- electron-builder --mac dmg --publish always",
+    "build:dmg": "npm run build && electron-builder --mac dmg --publish never",
+    "publish:dmg": "npm run build && npx dotenv-cli -e .env -- electron-builder --mac dmg --publish always",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
   "repository": {

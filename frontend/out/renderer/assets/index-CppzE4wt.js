@@ -25491,7 +25491,6 @@ const baseTheme = EditorView.theme({
 });
 function destroyBodyEditor() {
   if (view) {
-    syncBodyEditorToTextarea();
     view.destroy();
     view = null;
   }
@@ -25533,11 +25532,13 @@ function setBodyEditorText(doc2) {
     changes: { from: 0, to: view.state.doc.length, insert: doc2 }
   });
 }
-function refreshBodyEditor(mode) {
+function refreshBodyEditor(mode, doc2) {
   const ta = document.getElementById("bodyTextarea");
   const host = document.getElementById("bodyCmRoot");
   if (!ta || !host) return;
-  const text = ta.value;
+  const text = doc2 !== void 0 ? doc2 : ta.value;
+  ta.value = text;
+  destroyBodyEditor();
   host.innerHTML = "";
   mountBodyEditor(host, text, mode, () => {
     syncBodyEditorToTextarea();
@@ -25686,6 +25687,7 @@ function loadTabState(id) {
   const t2 = state.tabs.find((t22) => t22.id === id);
   const d = state.tabData[id];
   if (!t2 || !d) return;
+  destroyBodyEditor();
   document.getElementById("methodSelect").value = t2.method || "GET";
   document.getElementById("urlInput").value = t2.url || "";
   updateMethodColor();
@@ -25696,12 +25698,18 @@ function loadTabState(id) {
   renderAutoHeaders();
   updateHeaderBadge();
   renderKvEditor("bodyFormEditor", d.bodyForm, "bodyForm");
-  document.getElementById("bodyTextarea").value = d.body || "";
-  setBodyType(d.bodyType || "none");
+  const bodyContent = d.body ?? "";
+  document.getElementById("bodyTextarea").value = bodyContent;
+  const bt = d.bodyType || "none";
+  setBodyType(bt, null, true);
+  if (bt === "json" || bt === "raw") {
+    refreshBodyEditor(bt === "json" ? "json" : "raw", bodyContent);
+    _updateBodySize();
+  }
   const gv = document.getElementById("graphqlVarsTextarea");
   if (gv) gv.value = d.graphqlVars || "";
   const bt2 = document.getElementById("bodyTextarea2");
-  if (bt2) bt2.value = d.body || "";
+  if (bt2) bt2.value = bodyContent;
   document.getElementById("authType").value = d.auth ? d.auth.type || "none" : "none";
   updateAuthFields(d.auth);
   const prs = document.getElementById("preRequestScriptEditor");
@@ -26419,7 +26427,7 @@ document.addEventListener("kv:headers-changed", () => {
   renderAutoHeaders();
   updateHeaderBadge();
 });
-function setBodyType(type, _btnEl, _silent) {
+function setBodyType(type, _btnEl, silent) {
   state.currentBodyType = type;
   if (state.activeTabId && state.tabData[state.activeTabId]) state.tabData[state.activeTabId].bodyType = type;
   document.querySelectorAll(".body-type-btn").forEach((b) => b.classList.toggle("active", b.dataset.bodytype === type));
@@ -26439,14 +26447,23 @@ function setBodyType(type, _btnEl, _silent) {
   show("graphqlContainer", type === "graphql");
   show("binaryContainer", type === "binary");
   _updateBodySize();
-  renderBodyEditorForType();
+  if (!silent) {
+    renderBodyEditorForType();
+  } else if (type !== "json" && type !== "raw") {
+    syncBodyEditorToTextarea();
+    destroyBodyEditor();
+  }
   renderAutoHeaders();
   updateHeaderBadge();
 }
 function renderBodyEditorForType() {
   const t2 = state.currentBodyType;
-  if (t2 === "json" || t2 === "raw") refreshBodyEditor(t2 === "json" ? "json" : "raw");
-  else destroyBodyEditor();
+  if (t2 === "json" || t2 === "raw") {
+    refreshBodyEditor(t2 === "json" ? "json" : "raw");
+  } else {
+    syncBodyEditorToTextarea();
+    destroyBodyEditor();
+  }
 }
 function formatJson() {
   try {
@@ -27138,7 +27155,7 @@ function setupInputVarTooltips() {
 async function renderSidebarAppVersion() {
   const row = document.getElementById("sidebarVersionRow");
   if (!row) return;
-  let v = typeof window.RESTIFY_APP_VERSION === "string" ? window.RESTIFY_APP_VERSION : "1.0.0";
+  let v = typeof window.RESTIFY_APP_VERSION === "string" ? window.RESTIFY_APP_VERSION : "1.0.1";
   if (window.electronAPI?.getAppVersion) {
     try {
       v = await window.electronAPI.getAppVersion();
@@ -28209,6 +28226,9 @@ let _cloudUser = null;
 let _cloudToken$1 = null;
 let _syncInProgress = false;
 let _lastSyncAt = 0;
+function isCloudLoggedIn() {
+  return !!_cloudToken$1;
+}
 function _cloudHeaders$1() {
   const h = { "Content-Type": "application/json" };
   if (_cloudToken$1) h["Authorization"] = "Bearer " + _cloudToken$1;
@@ -29856,7 +29876,10 @@ async function init() {
     }
     if (mod && e.key === "s") {
       e.preventDefault();
-      if (state.activeTabId) openSaveModal();
+      if (state.activeTabId) saveCurrentTabState();
+      saveState({ forceDisk: true });
+      if (isCloudLoggedIn()) void cloudSync();
+      else showNotif("Saved locally", "success");
     }
     if (mod && e.key === "l") {
       e.preventDefault();

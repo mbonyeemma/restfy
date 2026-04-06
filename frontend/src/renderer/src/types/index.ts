@@ -142,6 +142,7 @@ export interface ElectronAPI {
   checkForUpdates: () => Promise<{ ok: boolean; dev?: boolean; error?: string }>
   quitAndInstall: () => void
   onUpdateStatus: (cb: (payload: { event: string; version?: string; message?: string }) => void) => void
+  openExternal: (url: string) => Promise<boolean>
 }
 
 declare global {

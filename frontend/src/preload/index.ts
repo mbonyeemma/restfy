@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   onUpdateStatus: (callback: (payload: any) => void) => {
     ipcRenderer.on('update-status', (_e, payload) => callback(payload))
-  }
+  },
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url) as Promise<boolean>
 })

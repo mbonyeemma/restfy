@@ -29,3 +29,13 @@ export const AUTH_COOKIE_NAME = "restify_auth";
  * Leave unset on localhost — API uses Bearer tokens only.
  */
 export const AUTH_COOKIE_DOMAIN = process.env.RESTIFY_AUTH_COOKIE_DOMAIN?.trim() || "";
+
+/** Resend API (transactional email). Never commit real keys — use `.env`. */
+export const RESEND_API_KEY = process.env.RESEND_API_KEY?.trim() || "";
+
+/**
+ * Verified sender in Resend (e.g. `Restify <noreply@yourdomain.com>`).
+ * Without a domain, Resend test mode allows `onboarding@resend.dev`.
+ */
+export const EMAIL_FROM =
+  process.env.RESTIFY_EMAIL_FROM?.trim() || "Restify <onboarding@resend.dev>";

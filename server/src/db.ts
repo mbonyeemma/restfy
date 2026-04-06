@@ -66,6 +66,72 @@ db.exec(`
     expires_at  INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token       TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
+
+  -- ── Teams & Collaboration ──────────────────────────────────
+  CREATE TABLE IF NOT EXISTS teams (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    slug        TEXT UNIQUE NOT NULL,
+    created_by  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS team_members (
+    team_id     TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role        TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner','admin','member','viewer')),
+    joined_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (team_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+
+  CREATE TABLE IF NOT EXISTS team_invites (
+    id          TEXT PRIMARY KEY,
+    team_id     TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    email       TEXT NOT NULL COLLATE NOCASE,
+    role        TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin','member','viewer')),
+    invited_by  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       TEXT UNIQUE NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    accepted_at INTEGER,
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE INDEX IF NOT EXISTS idx_team_invites_token ON team_invites(token);
+  CREATE INDEX IF NOT EXISTS idx_team_invites_email ON team_invites(email);
+
+  CREATE TABLE IF NOT EXISTS team_collections (
+    id          TEXT PRIMARY KEY,
+    team_id     TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    data        TEXT NOT NULL DEFAULT '{}',
+    updated_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE INDEX IF NOT EXISTS idx_team_collections_team ON team_collections(team_id);
+
+  CREATE TABLE IF NOT EXISTS team_environments (
+    id          TEXT PRIMARY KEY,
+    team_id     TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    data        TEXT NOT NULL DEFAULT '{}',
+    updated_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE INDEX IF NOT EXISTS idx_team_environments_team ON team_environments(team_id);
+
+  CREATE TABLE IF NOT EXISTS team_global_vars (
+    team_id     TEXT PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+    data        TEXT NOT NULL DEFAULT '[]',
+    updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
 `);
 
 const anonEmail = "anonymous@restfy.local";

@@ -1,7 +1,10 @@
+import { randomBytes } from "crypto";
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import db from "../db";
+import { ANONYMOUS_USER_ID } from "../config/constants";
 import { register, login, authMiddleware, setAuthCookie, clearAuthCookie } from "../auth";
+import { sendWelcomeEmail, sendPasswordResetEmail } from "../lib/email";
 
 const router = Router();
 
@@ -26,6 +29,9 @@ router.post("/register", (req: Request, res: Response) => {
     return;
   }
   setAuthCookie(res, result.token);
+  void sendWelcomeEmail(result.user.email, result.user.name).catch((err) =>
+    console.error("[email] welcome:", err)
+  );
   res.status(201).json(result);
 });
 
@@ -74,6 +80,65 @@ router.patch("/me", authMiddleware, (req: Request, res: Response) => {
     .prepare("SELECT id, email, name FROM users WHERE id = ?")
     .get(req.userId!) as { id: string; email: string; name: string };
   res.json({ user });
+});
+
+/**
+ * Always responds with the same message so addresses can’t be enumerated.
+ */
+router.post("/forgot-password", (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  const msg = {
+    ok: true,
+    message: "If an account exists for that email, you will receive reset instructions shortly.",
+  };
+  res.json(msg);
+
+  if (!email || typeof email !== "string") return;
+  const normalized = email.trim().toLowerCase();
+  const user = db.prepare("SELECT id FROM users WHERE email = ?").get(normalized) as
+    | { id: string }
+    | undefined;
+  if (!user || user.id === ANONYMOUS_USER_ID) return;
+
+  db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(user.id);
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+  db.prepare(
+    "INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)"
+  ).run(token, user.id, expiresAt);
+
+  void sendPasswordResetEmail(normalized, token).catch((err) =>
+    console.error("[email] password reset:", err)
+  );
+});
+
+router.post("/reset-password", (req: Request, res: Response) => {
+  const { token, newPassword } = req.body as { token?: string; newPassword?: string };
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Reset token is required" });
+    return;
+  }
+  if (!newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const row = db
+    .prepare(
+      "SELECT user_id FROM password_reset_tokens WHERE token = ? AND expires_at > ?"
+    )
+    .get(token, now) as { user_id: string } | undefined;
+  if (!row) {
+    res.status(400).json({ error: "Invalid or expired reset link" });
+    return;
+  }
+  const hashed = bcrypt.hashSync(newPassword, 10);
+  db.prepare("UPDATE users SET password = ?, updated_at = unixepoch() WHERE id = ?").run(
+    hashed,
+    row.user_id
+  );
+  db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(row.user_id);
+  res.json({ ok: true });
 });
 
 router.post("/change-password", authMiddleware, (req: Request, res: Response) => {

@@ -2,8 +2,10 @@ import { state, saveState } from './state'
 import { escHtml, showNotif, appPrompt, appConfirm } from './utils'
 
 let _teams: any[] = []
+let _workspaces: any[] = []
 let _activeTeamId: string | null = null
 let _teamDetail: any = null
+let _workspaceDetail: any = null
 
 function _cloudHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -51,9 +53,10 @@ export function openTeamsModal(): void {
     return
   }
   _teamDetail = null
+  _workspaceDetail = null
   _renderTeamsList()
   document.getElementById('teamsModal')?.classList.add('open')
-  void loadTeams()
+  void loadTeamsAndWorkspaces()
 }
 
 export function closeTeamsModal(): void {
@@ -62,16 +65,24 @@ export function closeTeamsModal(): void {
 
 // ── Load teams ────────────────────────────────────────────────
 
-async function loadTeams(): Promise<void> {
+async function loadTeamsAndWorkspaces(): Promise<void> {
   try {
-    const resp = await fetch(teamApiUrl('/api/teams'), {
-      credentials: 'include',
-      headers: _cloudHeaders(),
-    })
-    if (!resp.ok) throw new Error('Failed to load teams')
-    const data = await resp.json()
-    _teams = data.teams || []
+    const [teamsResp, wsResp] = await Promise.all([
+      fetch(teamApiUrl('/api/teams'), { credentials: 'include', headers: _cloudHeaders() }),
+      fetch(teamApiUrl('/api/workspaces'), { credentials: 'include', headers: _cloudHeaders() }),
+    ])
+    if (!teamsResp.ok) throw new Error('Failed to load teams')
+    if (!wsResp.ok) throw new Error('Failed to load workspaces')
+    const teamsData = await teamsResp.json()
+    const wsData = await wsResp.json()
+    _teams = teamsData.teams || []
+    _workspaces = wsData.workspaces || []
+    if (_workspaces.length > 0) {
+      const still = _workspaces.find((w: any) => w.id === _activeWorkspaceId)
+      if (!still) _persistActiveWorkspace(_workspaces[0].id)
+    }
     _renderTeamsList()
+    _renderWorkspaceBanner()
   } catch (err: any) {
     showNotif('Could not load teams: ' + err.message, 'error')
   }
@@ -79,7 +90,40 @@ async function loadTeams(): Promise<void> {
 
 // ── Create team ───────────────────────────────────────────────
 
-export async function createTeam(): Promise<void> {
+export async function createWorkspace(): Promise<void> {
+  const name = await appPrompt('Create Workspace', 'Enter a name for your organization (workspace).', {
+    placeholder: 'My Company',
+    okLabel: 'Create',
+  })
+  if (!name?.trim()) return
+  try {
+    const resp = await fetch(teamApiUrl('/api/workspaces'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}))
+      throw new Error((d as any).error || 'Failed to create workspace')
+    }
+    showNotif('Workspace created', 'success')
+    void loadTeamsAndWorkspaces()
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+export async function createTeam(workspaceId?: string): Promise<void> {
+  let wsId = workspaceId
+  if (!wsId) {
+    if (_workspaces.length === 1) {
+      wsId = _workspaces[0].id
+    } else {
+      showNotif('Choose a workspace and use “New team” under it, or create a workspace first.', 'info')
+      return
+    }
+  }
   const name = await appPrompt('Create Team', 'Enter a name for your team.', {
     placeholder: 'My Team',
     okLabel: 'Create',
@@ -90,14 +134,14 @@ export async function createTeam(): Promise<void> {
       method: 'POST',
       credentials: 'include',
       headers: _cloudHeaders(),
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify({ name: name.trim(), workspaceId: wsId }),
     })
     if (!resp.ok) {
       const d = await resp.json().catch(() => ({}))
       throw new Error((d as any).error || 'Failed to create team')
     }
     showNotif('Team created', 'success')
-    void loadTeams()
+    void loadTeamsAndWorkspaces()
   } catch (err: any) {
     showNotif(err.message, 'error')
   }
@@ -113,7 +157,107 @@ export async function openTeamDetail(teamId: string): Promise<void> {
     })
     if (!resp.ok) throw new Error('Failed to load team')
     _teamDetail = await resp.json()
+    _workspaceDetail = null
     _renderTeamDetail()
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+// ── Workspace detail ──────────────────────────────────────────
+
+export async function openWorkspaceDetail(workspaceId: string): Promise<void> {
+  try {
+    const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}`), {
+      credentials: 'include',
+      headers: _cloudHeaders(),
+    })
+    if (!resp.ok) throw new Error('Failed to load workspace')
+    _workspaceDetail = await resp.json()
+    _teamDetail = null
+    _renderWorkspaceDetail()
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+export async function inviteToWorkspace(workspaceId: string): Promise<void> {
+  const email = await appPrompt('Invite to workspace', 'Enter the email address to invite to this organization.', {
+    placeholder: 'colleague@example.com',
+    okLabel: 'Send Invite',
+  })
+  if (!email?.trim()) return
+  try {
+    const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/invite`), {
+      method: 'POST',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ email: email.trim(), role: 'member' }),
+    })
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}))
+      throw new Error((d as any).error || 'Failed to invite')
+    }
+    showNotif('Invitation sent', 'success')
+    void openWorkspaceDetail(workspaceId)
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+export async function cancelWorkspaceInvite(workspaceId: string, inviteId: string): Promise<void> {
+  try {
+    const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/invites/${inviteId}`), {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+    })
+    if (!resp.ok) throw new Error('Failed')
+    showNotif('Invite cancelled', 'success')
+    void openWorkspaceDetail(workspaceId)
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+export async function leaveWorkspace(workspaceId: string, workspaceName: string): Promise<void> {
+  const ok = await appConfirm(
+    'Leave workspace',
+    `Leave "${workspaceName}"? You will lose access to its teams and shared data.`
+  )
+  if (!ok) return
+  try {
+    const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/leave`), {
+      method: 'POST',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+    })
+    if (!resp.ok) throw new Error('Failed to leave workspace')
+    showNotif('Left workspace', 'success')
+    _workspaceDetail = null
+    void loadTeamsAndWorkspaces()
+  } catch (err: any) {
+    showNotif(err.message, 'error')
+  }
+}
+
+export async function deleteWorkspace(workspaceId: string, workspaceName: string): Promise<void> {
+  const ok = await appConfirm(
+    'Delete workspace',
+    `Delete "${workspaceName}"? This removes all teams and shared data in this organization.`,
+    { danger: true, okLabel: 'Delete' }
+  )
+  if (!ok) return
+  try {
+    const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}`), {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+    })
+    if (!resp.ok) throw new Error('Failed to delete workspace')
+    showNotif('Workspace deleted', 'success')
+    _workspaceDetail = null
+    void loadTeamsAndWorkspaces()
   } catch (err: any) {
     showNotif(err.message, 'error')
   }
@@ -177,7 +321,43 @@ export async function maybeAcceptTeamInvite(): Promise<void> {
     } else {
       showNotif('Invite accepted', 'success')
     }
-    void loadTeams()
+    void loadTeamsAndWorkspaces()
+  } catch {
+    showNotif('Failed to process invite', 'error')
+  }
+}
+
+export async function maybeAcceptWorkspaceInvite(): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    const u = new URL(window.location.href)
+    const token = u.searchParams.get('workspaceInvite')
+    if (!token) return
+    u.searchParams.delete('workspaceInvite')
+    window.history.replaceState({}, '', u.pathname + u.search + u.hash)
+
+    if (!_cloudToken()) {
+      showNotif('Sign in first, then use the invite link again.', 'info')
+      return
+    }
+
+    const resp = await fetch(teamApiUrl('/api/workspaces/accept-invite'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ token }),
+    })
+    const data = await resp.json()
+    if (!resp.ok) {
+      showNotif((data as any).error || 'Invalid invite', 'error')
+      return
+    }
+    if ((data as any).workspace) {
+      showNotif(`You joined workspace "${(data as any).workspace.name}"!`, 'success')
+    } else {
+      showNotif('Invite accepted', 'success')
+    }
+    void loadTeamsAndWorkspaces()
   } catch {
     showNotif('Failed to process invite', 'error')
   }
@@ -186,7 +366,7 @@ export async function maybeAcceptTeamInvite(): Promise<void> {
 // ── Remove member ─────────────────────────────────────────────
 
 export async function removeMember(teamId: string, userId: string, name: string): Promise<void> {
-  const ok = await appConfirm(`Remove ${name} from this team?`)
+  const ok = await appConfirm('Remove member', `Remove ${name} from this team?`)
   if (!ok) return
   try {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/members/${userId}`), {
@@ -229,7 +409,10 @@ export async function changeMemberRole(teamId: string, userId: string, newRole: 
 // ── Leave team ────────────────────────────────────────────────
 
 export async function leaveTeam(teamId: string, teamName: string): Promise<void> {
-  const ok = await appConfirm(`Leave team "${teamName}"? You will lose access to shared collections.`)
+  const ok = await appConfirm(
+    'Leave team',
+    `Leave "${teamName}"? You will lose access to shared collections.`
+  )
   if (!ok) return
   try {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/leave`), {
@@ -240,8 +423,7 @@ export async function leaveTeam(teamId: string, teamName: string): Promise<void>
     if (!resp.ok) throw new Error('Failed to leave team')
     showNotif('Left team', 'success')
     _teamDetail = null
-    void loadTeams()
-    _renderTeamsList()
+    void loadTeamsAndWorkspaces()
   } catch (err: any) {
     showNotif(err.message, 'error')
   }
@@ -250,7 +432,11 @@ export async function leaveTeam(teamId: string, teamName: string): Promise<void>
 // ── Delete team ───────────────────────────────────────────────
 
 export async function deleteTeam(teamId: string, teamName: string): Promise<void> {
-  const ok = await appConfirm(`Delete team "${teamName}"? This cannot be undone. All team collections and environments will be deleted.`)
+  const ok = await appConfirm(
+    'Delete team',
+    `Delete "${teamName}"? This cannot be undone. All team collections and environments will be deleted.`,
+    { danger: true, okLabel: 'Delete' }
+  )
   if (!ok) return
   try {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}`), {
@@ -261,8 +447,7 @@ export async function deleteTeam(teamId: string, teamName: string): Promise<void
     if (!resp.ok) throw new Error('Failed to delete team')
     showNotif('Team deleted', 'success')
     _teamDetail = null
-    void loadTeams()
-    _renderTeamsList()
+    void loadTeamsAndWorkspaces()
   } catch (err: any) {
     showNotif(err.message, 'error')
   }
@@ -335,16 +520,26 @@ function _renderTeamsList(): void {
   const body = document.getElementById('teamsModalBody')
   const title = document.getElementById('teamsModalTitle')
   if (!body || !title) return
-  title.textContent = 'Teams'
 
-  if (_teams.length === 0) {
+  if (_workspaceDetail) {
+    _renderWorkspaceDetail()
+    return
+  }
+  if (_teamDetail) {
+    _renderTeamDetail()
+    return
+  }
+
+  title.textContent = 'Teams & Workspaces'
+
+  if (_workspaces.length === 0) {
     body.innerHTML = `
       <div class="teams-list">
         <div style="text-align:center;padding:32px 0;color:var(--text-dim)">
-          <div style="font-size:36px;opacity:.25;margin-bottom:12px">👥</div>
-          <div style="font-size:14px;font-weight:500;margin-bottom:6px;color:var(--text-secondary)">No teams yet</div>
-          <div style="font-size:12px;margin-bottom:16px">Create a team to collaborate with others on API collections and environments.</div>
-          <button class="btn-primary" onclick="createTeam()">+ Create Team</button>
+          <div style="font-size:36px;opacity:.25;margin-bottom:12px">🏢</div>
+          <div style="font-size:14px;font-weight:500;margin-bottom:6px;color:var(--text-secondary)">No workspace yet</div>
+          <div style="font-size:12px;margin-bottom:16px">Create an organization (workspace), then add teams to share collections.</div>
+          <button class="btn-primary" onclick="createWorkspace()">+ Create Workspace</button>
         </div>
       </div>`
     return
@@ -352,21 +547,132 @@ function _renderTeamsList(): void {
 
   let html = `<div class="teams-list">
     <div class="teams-list-header">
-      <h3>Your Teams</h3>
-      <button class="btn-primary" style="font-size:12px;padding:5px 14px" onclick="createTeam()">+ New Team</button>
+      <h3>Your workspaces</h3>
+      <button class="btn-primary" style="font-size:12px;padding:5px 14px" onclick="createWorkspace()">+ New Workspace</button>
     </div>`
-  for (const t of _teams) {
+
+  for (const ws of _workspaces) {
+    const wsTeams = _teams.filter((t: any) => t.workspace_id === ws.id)
+    const wInitial = (ws.name || '?').charAt(0).toUpperCase()
+    html += `<div class="workspace-block" style="margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div class="team-card" style="border:none;border-radius:0" onclick="openWorkspaceDetail('${escHtml(ws.id)}')">
+        <div class="team-card-icon">${wInitial}</div>
+        <div class="team-card-info">
+          <div class="team-card-name">${escHtml(ws.name)}</div>
+          <div class="team-card-meta">${ws.member_count || 1} org member${(ws.member_count || 1) !== 1 ? 's' : ''}</div>
+        </div>
+        <span class="team-card-role">${escHtml(ws.role)}</span>
+      </div>
+      <div style="padding:8px 12px 12px;background:var(--bg-mid);border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase">Teams</span>
+          <button class="btn-text" style="font-size:12px" onclick="event.stopPropagation();createTeam('${escHtml(ws.id)}')">+ New team</button>
+        </div>`
+    if (wsTeams.length === 0) {
+      html += `<div style="font-size:12px;color:var(--text-dim);padding:4px 0">No teams yet — create one to collaborate.</div>`
+    } else {
+      for (const t of wsTeams) {
+        const initial = (t.name || '?').charAt(0).toUpperCase()
+        html += `<div class="team-card" style="margin-bottom:6px" onclick="event.stopPropagation();openTeamDetail('${escHtml(t.id)}')">
+          <div class="team-card-icon" style="width:32px;height:32px;font-size:13px">${initial}</div>
+          <div class="team-card-info">
+            <div class="team-card-name">${escHtml(t.name)}</div>
+            <div class="team-card-meta">${t.member_count || 1} member${(t.member_count || 1) !== 1 ? 's' : ''}</div>
+          </div>
+          <span class="team-card-role">${escHtml(t.role)}</span>
+        </div>`
+      }
+    }
+    html += '</div></div>'
+  }
+  html += '</div>'
+  body.innerHTML = html
+}
+
+function _renderWorkspaceDetail(): void {
+  const body = document.getElementById('teamsModalBody')
+  const title = document.getElementById('teamsModalTitle')
+  if (!body || !title || !_workspaceDetail) return
+
+  const ws = _workspaceDetail.workspace
+  const members: any[] = _workspaceDetail.members || []
+  const invites: any[] = _workspaceDetail.pendingInvites || []
+  const teams: any[] = _workspaceDetail.teams || []
+  const myRole: string = _workspaceDetail.myRole
+  const canManage = myRole === 'owner' || myRole === 'admin'
+
+  title.textContent = ws.name
+
+  let html = `<div class="team-detail">
+    <div class="team-detail-header">
+      <button class="team-detail-back" onclick="openTeamsModal()" title="Back">←</button>
+      <div class="team-detail-name">${escHtml(ws.name)}</div>
+      <span class="team-card-role">${escHtml(myRole)}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin:-4px 0 12px 28px">Organization · ${teams.length} team${teams.length !== 1 ? 's' : ''}</div>
+
+    <div class="team-section">
+      <div class="team-section-title">
+        <span>Members (${members.length})</span>
+        ${canManage ? `<button class="btn-text" onclick="inviteToWorkspace('${escHtml(ws.id)}')">+ Invite</button>` : ''}
+      </div>`
+
+  for (const m of members) {
+    const initial = (m.name || m.email || '?').charAt(0).toUpperCase()
+    const roleClass = m.role === 'owner' ? ' owner' : ''
+    html += `<div class="team-member-row">
+      <div class="team-member-avatar">${initial}</div>
+      <div class="team-member-info">
+        <div class="team-member-name">${escHtml(m.name || 'Unnamed')}</div>
+        <div class="team-member-email">${escHtml(m.email)}</div>
+      </div>
+      <span class="team-member-role${roleClass}">${escHtml(m.role)}</span>
+    </div>`
+  }
+  html += '</div>'
+
+  if (invites.length > 0) {
+    html += `<div class="team-section">
+      <div class="team-section-title"><span>Pending invitations (${invites.length})</span></div>`
+    for (const inv of invites) {
+      html += `<div class="team-invite-row">
+        <span class="team-invite-email">✉ ${escHtml(inv.email)}</span>
+        <span class="team-member-role">${escHtml(inv.role)}</span>
+        ${canManage ? `<button class="btn-text ctx-danger" onclick="cancelWorkspaceInvite('${escHtml(ws.id)}','${escHtml(inv.id)}')" title="Cancel">✕</button>` : ''}
+      </div>`
+    }
+    html += '</div>'
+  }
+
+  html += `<div class="team-section">
+    <div class="team-section-title">
+      <span>Teams (${teams.length})</span>
+      ${['owner', 'admin', 'member'].includes(myRole) ? `<button class="btn-text" onclick="createTeam('${escHtml(ws.id)}')">+ New team</button>` : ''}
+    </div>`
+  for (const t of teams) {
     const initial = (t.name || '?').charAt(0).toUpperCase()
     html += `<div class="team-card" onclick="openTeamDetail('${escHtml(t.id)}')">
-      <div class="team-card-icon">${initial}</div>
+      <div class="team-card-icon" style="width:32px;height:32px;font-size:13px">${initial}</div>
       <div class="team-card-info">
         <div class="team-card-name">${escHtml(t.name)}</div>
         <div class="team-card-meta">${t.member_count || 1} member${(t.member_count || 1) !== 1 ? 's' : ''}</div>
       </div>
-      <span class="team-card-role">${escHtml(t.role)}</span>
     </div>`
   }
+  if (teams.length === 0) {
+    html += `<div style="font-size:12px;color:var(--text-dim)">No teams yet.</div>`
+  }
   html += '</div>'
+
+  html += `<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:12px;display:flex;gap:8px">`
+  if (myRole !== 'owner') {
+    html += `<button class="btn-secondary" style="color:var(--red);border-color:var(--red);flex:1" onclick="leaveWorkspace('${escHtml(ws.id)}','${escHtml(ws.name)}')">Leave workspace</button>`
+  }
+  if (myRole === 'owner') {
+    html += `<button class="btn-secondary" style="color:var(--red);border-color:var(--red);flex:1" onclick="deleteWorkspace('${escHtml(ws.id)}','${escHtml(ws.name)}')">Delete workspace</button>`
+  }
+  html += '</div></div>'
+
   body.innerHTML = html
 }
 
@@ -385,12 +691,17 @@ function _renderTeamDetail(): void {
 
   title.textContent = team.name
 
+  const wsLabel = team.workspace_name
+    ? `<div style="font-size:11px;color:var(--text-dim);margin:-4px 0 8px 28px">${escHtml(team.workspace_name)}</div>`
+    : ''
+
   let html = `<div class="team-detail">
     <div class="team-detail-header">
       <button class="team-detail-back" onclick="openTeamsModal()" title="Back to teams">←</button>
       <div class="team-detail-name">${escHtml(team.name)}</div>
       <span class="team-card-role">${escHtml(myRole)}</span>
     </div>
+    ${wsLabel}
 
     <button class="team-workspace-btn" onclick="syncTeamWorkspace('${escHtml(team.id)}'); closeTeamsModal()">↻ Sync Team Workspace</button>
 
@@ -450,4 +761,174 @@ function _renderTeamDetail(): void {
 
 export function getActiveTeamId(): string | null {
   return _activeTeamId
+}
+
+// ── Workspace Banner ──────────────────────────────────────────
+
+const LS_ACTIVE_WS = 'restify_active_workspace'
+let _activeWorkspaceId: string | null = null
+let _wsSwitcherOpen = false
+
+export function getActiveWorkspaceId(): string | null {
+  return _activeWorkspaceId
+}
+
+function _persistActiveWorkspace(id: string): void {
+  _activeWorkspaceId = id
+  try { localStorage.setItem(LS_ACTIVE_WS, id) } catch {}
+}
+
+function _renderWorkspaceBanner(): void {
+  const nameEl = document.getElementById('workspaceBannerNameText')
+  const banner = document.getElementById('workspaceBanner')
+  if (!nameEl || !banner) return
+
+  // Always show the banner
+  banner.style.display = 'flex'
+
+  if (!_cloudToken()) {
+    nameEl.textContent = 'My Workspace'
+    return
+  }
+
+  const ws = _workspaces.find((w: any) => w.id === _activeWorkspaceId) || _workspaces[0]
+  if (ws) {
+    nameEl.textContent = ws.name
+    if (!_activeWorkspaceId) _persistActiveWorkspace(ws.id)
+  } else {
+    nameEl.textContent = 'My Workspace'
+  }
+}
+
+export async function initWorkspaceBanner(): Promise<void> {
+  const banner = document.getElementById('workspaceBanner')
+
+  // Show immediately — even before the cloud check resolves
+  if (banner) {
+    banner.style.display = 'flex'
+    const nameEl = document.getElementById('workspaceBannerNameText')
+    if (nameEl) nameEl.textContent = 'My Workspace'
+  }
+
+  if (!_cloudToken()) {
+    return
+  }
+
+  const stored = localStorage.getItem(LS_ACTIVE_WS)
+  if (stored) _activeWorkspaceId = stored
+
+  try {
+    const [teamsResp, wsResp] = await Promise.all([
+      fetch(teamApiUrl('/api/teams'), { credentials: 'include', headers: _cloudHeaders() }),
+      fetch(teamApiUrl('/api/workspaces'), { credentials: 'include', headers: _cloudHeaders() }),
+    ])
+    if (teamsResp.ok && wsResp.ok) {
+      const teamsData = await teamsResp.json()
+      const wsData = await wsResp.json()
+      _teams = teamsData.teams || []
+      _workspaces = wsData.workspaces || []
+
+      if (_workspaces.length > 0) {
+        const still = _workspaces.find((w: any) => w.id === _activeWorkspaceId)
+        if (!still) _persistActiveWorkspace(_workspaces[0].id)
+      }
+    }
+  } catch {}
+  _renderWorkspaceBanner()
+}
+
+export function toggleWsSwitcher(): void {
+  if (_wsSwitcherOpen) {
+    _closeWsSwitcher()
+    return
+  }
+  _wsSwitcherOpen = true
+
+  const btn = document.getElementById('workspaceBannerName')
+  const rect = btn?.getBoundingClientRect()
+  const top = rect ? rect.bottom + 2 : 32
+  const left = rect ? rect.left : 80
+
+  const menu = document.createElement('div')
+  menu.className = 'ws-switcher-menu'
+  menu.id = 'wsSwitcherMenu'
+  menu.style.top = top + 'px'
+  menu.style.left = left + 'px'
+
+  let html = '<div class="ws-switcher-header">Your Workspaces</div>'
+
+  if (_workspaces.length === 0) {
+    html += `<div class="ws-switcher-item" style="color:var(--text-dim)">No workspaces yet</div>`
+  } else {
+    for (const ws of _workspaces) {
+      const initial = (ws.name || '?').charAt(0).toUpperCase()
+      const isActive = ws.id === _activeWorkspaceId
+      html += `<div class="ws-switcher-item${isActive ? ' active' : ''}" onclick="_switchActiveWorkspace('${escHtml(ws.id)}')">
+        <span class="ws-switcher-check">✓</span>
+        <div class="ws-switcher-icon">${initial}</div>
+        <div class="ws-switcher-info">
+          <div class="ws-switcher-name">${escHtml(ws.name)}</div>
+          <div class="ws-switcher-role">${escHtml(ws.role)}</div>
+        </div>
+      </div>`
+    }
+  }
+
+  html += `<div class="ws-switcher-divider"></div>
+    <div class="ws-switcher-action" onclick="_closeWsSwitcher(); createWorkspace()">
+      <span class="ws-switcher-action-icon">＋</span> Create workspace
+    </div>
+    <div class="ws-switcher-action" onclick="_closeWsSwitcher(); openTeamsModal()">
+      <span class="ws-switcher-action-icon">🏢</span> Manage workspaces
+    </div>`
+
+  menu.innerHTML = html
+  document.body.appendChild(menu)
+
+  const closeOnOutside = (e: MouseEvent) => {
+    const t = e.target as Node
+    if (!menu.contains(t) && t !== btn) {
+      _closeWsSwitcher()
+      document.removeEventListener('mousedown', closeOnOutside)
+    }
+  }
+  document.addEventListener('mousedown', closeOnOutside)
+}
+
+export function _closeWsSwitcher(): void {
+  _wsSwitcherOpen = false
+  document.getElementById('wsSwitcherMenu')?.remove()
+}
+
+export function _switchActiveWorkspace(workspaceId: string): void {
+  _closeWsSwitcher()
+  _persistActiveWorkspace(workspaceId)
+  _renderWorkspaceBanner()
+}
+
+export function inviteToActiveWorkspace(): void {
+  if (!_cloudToken()) {
+    showNotif('Sign in to use workspaces', 'info')
+    return
+  }
+  const ws = _workspaces.find((w: any) => w.id === _activeWorkspaceId)
+  if (!ws) {
+    showNotif('No active workspace', 'info')
+    return
+  }
+  void inviteToWorkspace(ws.id)
+}
+
+export function openTeamsInActiveWorkspace(): void {
+  if (!_cloudToken()) {
+    showNotif('Sign in to use teams', 'info')
+    return
+  }
+  const ws = _workspaces.find((w: any) => w.id === _activeWorkspaceId)
+  if (ws) {
+    void openWorkspaceDetail(ws.id)
+    document.getElementById('teamsModal')?.classList.add('open')
+  } else {
+    openTeamsModal()
+  }
 }

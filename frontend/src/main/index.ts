@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, nativeImage } from 'electron'
+import { app, BrowserWindow, session, ipcMain, nativeImage, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync, writeFileSync, copyFileSync } from 'fs'
 import { writeFile, readFile } from 'fs/promises'
@@ -148,8 +148,66 @@ function setupAutoUpdater(): void {
   setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
 }
 
+function buildAppMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    }
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 app.whenReady().then(() => {
   migrateLegacyStateFileSync()
+  buildAppMenu()
   if (process.platform === 'darwin') {
     const iconPath = join(__dirname, '../../resources/icon.png')
     if (existsSync(iconPath)) {

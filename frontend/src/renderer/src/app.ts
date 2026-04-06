@@ -10,7 +10,7 @@ import {
   hideContextMenu, addSubfolder, startRename, doDuplicate, doDelete,
   clearHistory, getKvStore, renderKvEditor, addKvRow, deleteKvRow, kvChange,
   kvFileChange, kvTypeChange, getAuthState, updateAuthFields, fetchOAuth2Token,
-  setBodyType, formatJson, beautifyResponse, updateBodyHighlight, syncBodyScroll,
+  setBodyType, formatJson, beautifyResponse, updateBodyHighlight, syncBodyScroll, updateBodySize,
   updateUrlHighlight, toggleTheme, loadTheme, switchReqTab, switchRespTab,
   showWorkspace, showEmpty, updateMethodColor, copyResponse, switchResponseMode,
   showResponsePlaceholder, restoreResponse, openSaveModal, closeSaveModal, saveRequest,
@@ -34,9 +34,12 @@ import {
 } from './modules/cloud'
 import { sendRequest, cancelRequest } from './modules/http'
 import {
-  openTeamsModal, closeTeamsModal, createTeam, openTeamDetail,
-  inviteToTeam, removeMember, changeMemberRole, leaveTeam,
-  deleteTeam, cancelInvite, syncTeamWorkspace, maybeAcceptTeamInvite
+  openTeamsModal, closeTeamsModal, createWorkspace, createTeam, openTeamDetail,
+  openWorkspaceDetail, inviteToTeam, inviteToWorkspace, removeMember, changeMemberRole, leaveTeam,
+  leaveWorkspace, deleteTeam, deleteWorkspace, cancelInvite, cancelWorkspaceInvite,
+  syncTeamWorkspace, maybeAcceptTeamInvite, maybeAcceptWorkspaceInvite,
+  initWorkspaceBanner, toggleWsSwitcher, _closeWsSwitcher, _switchActiveWorkspace,
+  inviteToActiveWorkspace, openTeamsInActiveWorkspace
 } from './modules/teams'
 
 // ── Bootstrap ─────────────────────────────────────────────────────
@@ -59,7 +62,7 @@ Object.assign(window, {
   // Auth
   getAuthState, updateAuthFields, fetchOAuth2Token,
   // Body
-  setBodyType, formatJson, beautifyResponse, updateBodyHighlight, syncBodyScroll,
+  setBodyType, formatJson, beautifyResponse, updateBodyHighlight, syncBodyScroll, updateBodySize,
   updateUrlHighlight,
   // Theme
   toggleTheme, loadTheme,
@@ -90,10 +93,14 @@ Object.assign(window, {
   cloudSync, renderCloudStatus, openCloudModal, closeCloudModal,
   _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
   cloudForgotPassword,
-  // Teams
-  openTeamsModal, closeTeamsModal, createTeam, openTeamDetail,
-  inviteToTeam, removeMember, changeMemberRole, leaveTeam,
-  deleteTeam, cancelInvite, syncTeamWorkspace,
+  // Teams & workspaces
+  openTeamsModal, closeTeamsModal, createWorkspace, createTeam, openTeamDetail,
+  openWorkspaceDetail, inviteToTeam, inviteToWorkspace, removeMember, changeMemberRole, leaveTeam,
+  leaveWorkspace, deleteTeam, deleteWorkspace, cancelInvite, cancelWorkspaceInvite,
+  syncTeamWorkspace,
+  // Workspace banner
+  initWorkspaceBanner, toggleWsSwitcher, _closeWsSwitcher, _switchActiveWorkspace,
+  inviteToActiveWorkspace, openTeamsInActiveWorkspace,
   // HTTP
   sendRequest, cancelRequest,
   // Utils (used in inline HTML)
@@ -108,6 +115,8 @@ async function init() {
   loadTheme()
   await maybeOpenPasswordResetFromUrl()
   await maybeAcceptTeamInvite()
+  await maybeAcceptWorkspaceInvite()
+  void initWorkspaceBanner()
   await loadState()
 
   if (state.tabs.length === 0) {

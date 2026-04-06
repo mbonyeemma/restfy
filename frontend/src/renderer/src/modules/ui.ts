@@ -21,6 +21,14 @@ import {
 import { showCtxMenu, positionContextMenu, hideContextMenu, buildCtxHtml } from '../components/ctx-menu'
 import { activateTabStrip, setActiveTabBtn } from '../components/tab-strip'
 import { setMainView } from '../components/workspace'
+import { buildDocsPreviewSrcdoc, tryPatchDocsPreviewContent } from '../docs-preview-page'
+import {
+  destroyBodyEditor,
+  refreshBodyEditor,
+  getBodyEditorText,
+  setBodyEditorText,
+  syncBodyEditorToTextarea
+} from './body-editor-cm'
 
 // Re-export KV helpers so app.ts / codegen.ts / http.ts can import from a single place
 export {
@@ -159,8 +167,8 @@ export function saveCurrentTabState() {
     ? (t.url.replace(/https?:\/\//, '').split('?')[0].split('/').filter(Boolean).pop() || t.url).substring(0, 30)
     : 'New Request'
   state.tabData[state.activeTabId!].bodyType = state.currentBodyType as any
-  const bt = document.getElementById('bodyTextarea') as HTMLTextAreaElement | null
-  if (bt) state.tabData[state.activeTabId!].body = bt.value
+  syncBodyEditorToTextarea()
+  state.tabData[state.activeTabId!].body = getBodyEditorText()
   const gv = document.getElementById('graphqlVarsTextarea') as HTMLTextAreaElement | null
   if (gv) state.tabData[state.activeTabId!].graphqlVars = gv.value
   state.tabData[state.activeTabId!].auth = getAuthState()
@@ -181,11 +189,17 @@ function loadTabState(id: string) {
   renderKvEditor('headersEditor', d.headers, 'headers')
   renderInheritedHeaders(); renderAutoHeaders(); updateHeaderBadge()
   renderKvEditor('bodyFormEditor', d.bodyForm, 'bodyForm')
+  ;(document.getElementById('bodyTextarea') as HTMLTextAreaElement).value = d.body ?? ''
   setBodyType(d.bodyType || 'none', null, true)
-  ;(document.getElementById('bodyTextarea') as HTMLTextAreaElement).value = d.body || ''
-  updateBodyHighlight()
+  const bt = d.bodyType || 'none'
+  if (bt === 'json' || bt === 'raw') {
+    refreshBodyEditor(bt === 'json' ? 'json' : 'raw', d.body ?? '')
+    _updateBodySize()
+  }
   const gv = document.getElementById('graphqlVarsTextarea') as HTMLTextAreaElement | null
   if (gv) gv.value = d.graphqlVars || ''
+  const bt2 = document.getElementById('bodyTextarea2') as HTMLTextAreaElement | null
+  if (bt2) bt2.value = d.body || ''
   ;(document.getElementById('authType') as HTMLSelectElement).value = d.auth ? d.auth.type || 'none' : 'none'
   updateAuthFields(d.auth)
   const prs = document.getElementById('preRequestScriptEditor') as HTMLTextAreaElement | null
@@ -355,6 +369,46 @@ export function openRequest(nodeId: string) {
 
 let _activeDocsColId: string | null = null
 let _docsFullDocsVisible = false
+let _docsPreviewRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let _cdocsPreviewThemeObs: MutationObserver | null = null
+
+function _ensureDocsPreviewThemeObserver(): void {
+  if (_cdocsPreviewThemeObs) return
+  _cdocsPreviewThemeObs = new MutationObserver(() => {
+    const col = _activeDocsColId ? findNodeInAll(_activeDocsColId) : null
+    if (col && col.type === 'collection') _refreshDocsPreview(col)
+  })
+  _cdocsPreviewThemeObs.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  })
+}
+
+function _refreshDocsPreview(col: any): void {
+  const frame = document.getElementById('cdocsPreviewFrame') as HTMLIFrameElement | null
+  if (!frame) return
+  const theme = document.documentElement.getAttribute('data-theme') || 'light'
+  try {
+    if (tryPatchDocsPreviewContent(frame, col, theme)) return
+    frame.srcdoc = buildDocsPreviewSrcdoc(col, theme)
+  } catch (e) {
+    console.error('[cdocs preview]', e)
+  }
+}
+
+/** Debounced so typing updates preview without reloading the iframe every key (avoids UI shake). */
+const DOCS_PREVIEW_DEBOUNCE_MS = 600
+
+function scheduleDocsPreviewRefresh(): void {
+  const id = _activeDocsColId
+  if (!id) return
+  if (_docsPreviewRefreshTimer) clearTimeout(_docsPreviewRefreshTimer)
+  _docsPreviewRefreshTimer = setTimeout(() => {
+    _docsPreviewRefreshTimer = null
+    const col = findNodeInAll(id)
+    if (col && col.type === 'collection') _refreshDocsPreview(col)
+  }, DOCS_PREVIEW_DEBOUNCE_MS)
+}
 
 export function openCollectionDocs(colId: string) {
   const col = findNodeInAll(colId)
@@ -414,8 +468,12 @@ function renderCollectionDocs(col: any) {
 
   const descEl = document.getElementById('cdocsDesc') as HTMLTextAreaElement | null
   if (descEl) {
-    descEl.value = col.description || ''
-    descEl.oninput = function() { col.description = (this as HTMLTextAreaElement).value; saveState() }
+    if (document.activeElement !== descEl) descEl.value = col.description || ''
+    descEl.oninput = function () {
+      col.description = (this as HTMLTextAreaElement).value
+      saveState()
+      scheduleDocsPreviewRefresh()
+    }
   }
 
   const authTab = document.querySelector('[data-cdocs-tab="authorization"]')
@@ -443,6 +501,9 @@ function renderCollectionDocs(col: any) {
     fullDocs.style.display = _docsFullDocsVisible ? 'block' : 'none'
     if (_docsFullDocsVisible) _buildFullDocs(col, fullDocs)
   }
+
+  _ensureDocsPreviewThemeObserver()
+  _refreshDocsPreview(col)
 }
 
 function _countFolders(node: any): number {
@@ -480,10 +541,12 @@ function _buildFullDocs(col: any, container: HTMLElement) {
   if (col.auth?.type && col.auth.type !== 'none') _renderDocAuthRow(container, col.auth, col.name)
   if (!col.children || col.children.length === 0) {
     container.innerHTML += '<div style="text-align:center;color:var(--text-dim);padding:32px;font-size:13px">No requests in this collection yet.</div>'
+    scheduleDocsPreviewRefresh()
     return
   }
   col.children.filter((c: any) => c.type === 'request').forEach((req: any) => _renderDocRequestCard(container, req))
   col.children.filter((c: any) => c.type === 'folder').forEach((f: any) => _renderDocFolderSection(container, f, col))
+  scheduleDocsPreviewRefresh()
 }
 
 function _renderDocFolderSection(container: HTMLElement, folder: any, parentCol: any) {
@@ -493,12 +556,16 @@ function _renderDocFolderSection(container: HTMLElement, folder: any, parentCol:
   heading.className = 'cdocs-folder-heading'
   heading.textContent = folder.name
   section.appendChild(heading)
-  if (folder.description) {
-    const desc = document.createElement('div')
-    desc.className = 'cdocs-folder-desc'
-    desc.textContent = folder.description
-    section.appendChild(desc)
+  const folderDesc = document.createElement('textarea')
+  folderDesc.className = 'cdocs-desc cdocs-folder-desc-input'
+  folderDesc.placeholder = 'Add folder description...'
+  folderDesc.value = folder.description || ''
+  folderDesc.oninput = function () {
+    folder.description = (this as HTMLTextAreaElement).value
+    saveState()
+    scheduleDocsPreviewRefresh()
   }
+  section.appendChild(folderDesc)
   const effectiveAuth = folder.auth?.type && folder.auth.type !== 'none' ? folder.auth : null
   if (effectiveAuth) {
     _renderDocAuthRow(section, effectiveAuth, null)
@@ -541,6 +608,19 @@ function _renderDocRequestCard(container: HTMLElement, req: any) {
     urlWrap.innerHTML = '<code>' + escHtml(req.url) + '</code>'
     card.appendChild(urlWrap)
   }
+  const reqDescWrap = document.createElement('div')
+  reqDescWrap.className = 'cdocs-req-desc-wrap'
+  const reqDesc = document.createElement('textarea')
+  reqDesc.className = 'cdocs-desc cdocs-req-desc-input'
+  reqDesc.placeholder = 'Add request description...'
+  reqDesc.value = req.description || ''
+  reqDesc.oninput = function () {
+    req.description = (this as HTMLTextAreaElement).value
+    saveState()
+    scheduleDocsPreviewRefresh()
+  }
+  reqDescWrap.appendChild(reqDesc)
+  card.appendChild(reqDescWrap)
   container.appendChild(card)
 }
 
@@ -854,7 +934,7 @@ document.addEventListener('kv:headers-changed', () => { renderAutoHeaders(); upd
 
 // ── Body Type ─────────────────────────────────────────────────────
 
-export function setBodyType(type: string, _btnEl?: any, _silent?: boolean) {
+export function setBodyType(type: string, _btnEl?: any, silent?: boolean) {
   state.currentBodyType = type
   if (state.activeTabId && state.tabData[state.activeTabId]) state.tabData[state.activeTabId].bodyType = type as any
   document.querySelectorAll<HTMLElement>('.body-type-btn').forEach(b => b.classList.toggle('active', (b as any).dataset.bodytype === type))
@@ -867,13 +947,37 @@ export function setBodyType(type: string, _btnEl?: any, _silent?: boolean) {
   if (fmtBtn) fmtBtn.style.display = (type === 'json' || type === 'raw') ? 'inline-flex' : 'none'
   show('graphqlContainer', type === 'graphql')
   show('binaryContainer', type === 'binary')
-  _updateBodySize(); updateBodyHighlight(); renderAutoHeaders(); updateHeaderBadge()
+  _updateBodySize()
+  if (!silent) {
+    renderBodyEditorForType()
+  } else if (type !== 'json' && type !== 'raw') {
+    syncBodyEditorToTextarea()
+    destroyBodyEditor()
+  }
+  renderAutoHeaders(); updateHeaderBadge()
+}
+
+function renderBodyEditorForType(): void {
+  const t = state.currentBodyType
+  if (t === 'json' || t === 'raw') {
+    refreshBodyEditor(t === 'json' ? 'json' : 'raw')
+  } else {
+    syncBodyEditorToTextarea()
+    destroyBodyEditor()
+  }
 }
 
 export function formatJson() {
-  const ta = document.getElementById('bodyTextarea') as HTMLTextAreaElement
-  try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); showNotif('Beautified', 'success'); _updateBodySize(); updateBodyHighlight() }
-  catch { showNotif('Invalid JSON', 'error') }
+  try {
+    const formatted = JSON.stringify(JSON.parse(getBodyEditorText()), null, 2)
+    const ta = document.getElementById('bodyTextarea') as HTMLTextAreaElement
+    ta.value = formatted
+    setBodyEditorText(formatted)
+    showNotif('Beautified', 'success')
+    _updateBodySize()
+  } catch {
+    showNotif('Invalid JSON', 'error')
+  }
 }
 
 export function beautifyResponse() {
@@ -894,9 +998,14 @@ function _updateBodySize() {
   if (!el) return
   let size = 0
   if (state.currentBodyType === 'json' || state.currentBodyType === 'raw' || state.currentBodyType === 'graphql') {
-    size = new Blob([(document.getElementById('bodyTextarea') as HTMLTextAreaElement)?.value || '']).size
+    syncBodyEditorToTextarea()
+    size = new Blob([getBodyEditorText() || '']).size
   }
   el.textContent = size > 0 ? formatBytes(size) : ''
+}
+
+export function updateBodySize(): void {
+  _updateBodySize()
 }
 
 function _highlightVarTokens(html: string): string {
@@ -917,33 +1026,10 @@ export function updateUrlHighlight() {
   ;(overlay as HTMLElement).scrollLeft = input.scrollLeft
 }
 
-export function updateBodyHighlight() {
-  const ta = document.getElementById('bodyTextarea') as HTMLTextAreaElement | null
-  const overlay = document.getElementById('bodyHighlightOverlay') as HTMLElement | null
-  const lineNums = document.getElementById('bodyLineNumbers') as HTMLElement | null
-  if (!ta || !overlay || !lineNums) return
-  const val = ta.value || ''
-  const isJson = state.currentBodyType === 'json'
-  const isRaw = state.currentBodyType === 'raw'
-  const isGraphql = state.currentBodyType === 'graphql'
-  if (!isJson && !isRaw && !isGraphql) {
-    overlay.style.display = 'none'; lineNums.style.display = 'none'
-    ta.style.color = 'var(--text-primary)'; return
-  }
-  overlay.style.display = 'block'; lineNums.style.display = 'block'
-  ta.style.color = 'transparent'; ta.style.caretColor = 'var(--text-primary)'
-  overlay.innerHTML = isJson ? _highlightVarTokens(syntaxHighlight(val)) : _highlightVarTokens(escHtml(val))
-  lineNums.innerHTML = val.split('\n').map((_, i) => `<div>${i + 1}</div>`).join('')
-}
+/** Legacy hook — body JSON colours are handled by CodeMirror. */
+export function updateBodyHighlight(): void {}
 
-export function syncBodyScroll() {
-  const ta = document.getElementById('bodyTextarea') as HTMLTextAreaElement | null
-  const overlay = document.getElementById('bodyHighlightOverlay') as HTMLElement | null
-  const lineNums = document.getElementById('bodyLineNumbers') as HTMLElement | null
-  if (!ta || !overlay) return
-  overlay.scrollTop = ta.scrollTop; overlay.scrollLeft = ta.scrollLeft
-  if (lineNums) lineNums.scrollTop = ta.scrollTop
-}
+export function syncBodyScroll(): void {}
 
 // ── Auth ──────────────────────────────────────────────────────────
 
@@ -990,7 +1076,7 @@ export async function fetchOAuth2Token() {
 
 export function toggleTheme() {
   const html = document.documentElement
-  const next = (html.getAttribute('data-theme') || 'dark') === 'dark' ? 'light' : 'dark'
+  const next = (html.getAttribute('data-theme') || 'light') === 'light' ? 'dark' : 'light'
   html.setAttribute('data-theme', next)
   localStorage.setItem('restify_theme', next)
   const btn = document.getElementById('themeToggleBtn')
@@ -998,7 +1084,7 @@ export function toggleTheme() {
 }
 
 export function loadTheme() {
-  const saved = localStorage.getItem('restify_theme') || localStorage.getItem('restfy_theme') || 'dark'
+  const saved = localStorage.getItem('restify_theme') || localStorage.getItem('restfy_theme') || 'light'
   document.documentElement.setAttribute('data-theme', saved)
   const btn = document.getElementById('themeToggleBtn')
   if (btn) btn.textContent = saved === 'dark' ? '☾' : '☀'

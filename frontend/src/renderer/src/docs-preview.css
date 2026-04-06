@@ -1,61 +1,51 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>API Documentation — Restify</title>
-<link rel="icon" type="image/png" href="./assets/icon-_2KpqGqI.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
 :root {
-  --bg-page: #0f0f0f;
-  --bg-sidebar: #141414;
-  --bg-card: #1a1a1a;
-  --bg-code: #0d0d0d;
-  --bg-hover: #1f1f1f;
-  --bg-input: #1a1a1a;
-  --border: #262626;
-  --border-light: #333;
-  --text-primary: #f0f0f0;
-  --text-secondary: #999;
-  --text-dim: #555;
-  --accent: #ef5c35;
-  --accent-hover: #f06e4a;
-  --accent-glow: rgba(239,92,53,.1);
-  --green: #3dd68c;   --green-bg: rgba(61,214,140,.12);
-  --red: #f56565;     --red-bg: rgba(245,101,101,.12);
-  --yellow: #f6c90e;  --yellow-bg: rgba(246,201,14,.12);
-  --blue: #4da6ff;    --blue-bg: rgba(77,166,255,.12);
-  --purple: #a78bfa;  --purple-bg: rgba(167,139,250,.12);
-  --cyan: #22d3ee;    --cyan-bg: rgba(34,211,238,.12);
-  --orange: #fb923c;  --orange-bg: rgba(251,146,60,.12);
-  --sidebar-w: 280px;
-  --topbar-h: 56px;
-  --radius: 8px;
+--bg-page: #0f0f0f;
+--bg-sidebar: #141414;
+--bg-card: #1a1a1a;
+--bg-code: #0d0d0d;
+--bg-hover: #1f1f1f;
+--bg-input: #1a1a1a;
+--border: #262626;
+--border-light: #333;
+--text-primary: #f0f0f0;
+--text-secondary: #999;
+--text-dim: #555;
+--accent: #ef5c35;
+--accent-hover: #f06e4a;
+--accent-glow: rgba(239,92,53,.1);
+--green: #3dd68c;   --green-bg: rgba(61,214,140,.12);
+--red: #f56565;     --red-bg: rgba(245,101,101,.12);
+--yellow: #f6c90e;  --yellow-bg: rgba(246,201,14,.12);
+--blue: #4da6ff;    --blue-bg: rgba(77,166,255,.12);
+--purple: #a78bfa;  --purple-bg: rgba(167,139,250,.12);
+--cyan: #22d3ee;    --cyan-bg: rgba(34,211,238,.12);
+--orange: #fb923c;  --orange-bg: rgba(251,146,60,.12);
+--sidebar-w: 280px;
+--topbar-h: 56px;
+--radius: 8px;
 }
 [data-theme="light"] {
-  --bg-page: #fafafa;
-  --bg-sidebar: #fff;
-  --bg-card: #fff;
-  --bg-code: #f5f5f5;
-  --bg-hover: #f0f0f0;
-  --bg-input: #fff;
-  --border: #e5e5e5;
-  --border-light: #eee;
-  --text-primary: #111;
-  --text-secondary: #555;
-  --text-dim: #999;
-  --accent: #ef5c35;
-  --accent-hover: #e04a25;
-  --accent-glow: rgba(239,92,53,.06);
-  --green: #16a34a;   --green-bg: rgba(22,163,74,.08);
-  --red: #dc2626;     --red-bg: rgba(220,38,38,.08);
-  --yellow: #ca8a04;  --yellow-bg: rgba(202,138,4,.08);
-  --blue: #2563eb;    --blue-bg: rgba(37,99,235,.08);
-  --purple: #7c3aed;  --purple-bg: rgba(124,58,237,.08);
-  --cyan: #0891b2;    --cyan-bg: rgba(8,145,178,.08);
-  --orange: #ea580c;  --orange-bg: rgba(234,88,12,.08);
+--bg-page: #fafafa;
+--bg-sidebar: #fff;
+--bg-card: #fff;
+--bg-code: #f5f5f5;
+--bg-hover: #f0f0f0;
+--bg-input: #fff;
+--border: #e5e5e5;
+--border-light: #eee;
+--text-primary: #111;
+--text-secondary: #555;
+--text-dim: #999;
+--accent: #ef5c35;
+--accent-hover: #e04a25;
+--accent-glow: rgba(239,92,53,.06);
+--green: #16a34a;   --green-bg: rgba(22,163,74,.08);
+--red: #dc2626;     --red-bg: rgba(220,38,38,.08);
+--yellow: #ca8a04;  --yellow-bg: rgba(202,138,4,.08);
+--blue: #2563eb;    --blue-bg: rgba(37,99,235,.08);
+--purple: #7c3aed;  --purple-bg: rgba(124,58,237,.08);
+--cyan: #0891b2;    --cyan-bg: rgba(8,145,178,.08);
+--orange: #ea580c;  --orange-bg: rgba(234,88,12,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:var(--bg-page);color:var(--text-primary);height:100vh;overflow:hidden;display:flex;flex-direction:column}
@@ -207,7 +197,7 @@ code,pre{font-family:'JetBrains Mono',monospace}
 
 /* ── RESPONSIVE ── */
 @media(max-width:1100px){
-  .ep-right{width:340px}
+.ep-right{width:340px}
 }
 @media(max-width:900px){
   .sidebar{display:none}
@@ -219,43 +209,11 @@ code,pre{font-family:'JetBrains Mono',monospace}
   .base-url-bar{padding:12px 20px}
   .intro-auth{padding:12px 20px}
 }
-</style>
-  <script type="module" crossorigin src="./assets/docs-DNFyI1qf.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/published-docs-html-Dy1vaC6o.js">
-</head>
-<body>
 
-<div class="topbar">
-  <a class="topbar-brand" href="https://app.restify.online/" target="_blank" rel="noopener" title="Restify">
-    <div class="topbar-logo">R</div>
-    <span class="topbar-site">Restify</span>
-  </a>
-  <div class="topbar-divider"></div>
-  <div class="topbar-title" id="topbarTitle">Loading…</div>
-  <div class="topbar-meta" id="topbarMeta"></div>
-  <div class="topbar-actions">
-    <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">☀</button>
-    <a class="btn-open" id="openBtn" href="#" target="_blank" rel="noopener">↗ Open in Restify</a>
-  </div>
-</div>
-
-<div class="layout">
-  <nav class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-collection" id="sidebarTitle">Loading…</div>
-      <div class="sidebar-count" id="sidebarCount"></div>
-    </div>
-    <div class="sidebar-search-wrap" style="position:relative">
-      <span class="sidebar-search-icon">⌕</span>
-      <input type="text" class="sidebar-search" id="sidebarSearch" placeholder="Search endpoints…" oninput="filterEndpoints(this.value)">
-    </div>
-    <div class="sidebar-nav" id="sidebarNav"></div>
-  </nav>
-
-  <div class="docs-content" id="docsContent">
-    <div class="loading-wrap"><div class="spinner"></div>Loading documentation…</div>
-  </div>
-</div>
-
-</body>
-</html>
+/* In-app iframe preview: scrollable page */
+body.docs-preview-root {
+  height: auto !important;
+  min-height: 100%;
+  overflow: auto !important;
+  display: block !important;
+}

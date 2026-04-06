@@ -1,3 +1,4 @@
+import { getBodyEditorText } from './body-editor-cm'
 import { state, resolveVariables, getAncestorChain, getInheritedHeaders, getInheritedAuth, saveState, addToHistory } from './state'
 import { escHtml, formatBytes, syntaxHighlight, syntaxHighlightXml, showNotif } from './utils'
 import { runPreRequestScript, runTestScript } from './scripts'
@@ -49,10 +50,10 @@ export async function sendRequest() {
   const bodyType = state.currentBodyType
   if (method !== 'GET' && method !== 'HEAD') {
     if (bodyType === 'json' || bodyType === 'raw') {
-      body = resolveVariables((document.getElementById('bodyTextarea') as HTMLTextAreaElement).value)
+      body = resolveVariables(getBodyEditorText())
       if (bodyType === 'json' && !headers['Content-Type']) headers['Content-Type'] = 'application/json'
     } else if (bodyType === 'graphql') {
-      const query = resolveVariables((document.getElementById('bodyTextarea') as HTMLTextAreaElement).value)
+      const query = resolveVariables(getBodyEditorText())
       const vars = (document.getElementById('graphqlVarsTextarea') as HTMLTextAreaElement)?.value || '{}'
       try { body = JSON.stringify({ query, variables: JSON.parse(resolveVariables(vars)) }) }
       catch { body = JSON.stringify({ query, variables: {} }) }

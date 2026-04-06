@@ -1,3 +1,4 @@
+import { getBodyEditorText } from './body-editor-cm'
 import {
   state, findNodeInAll, makeCollection, makeFolder, makeRequest,
   deepClone, assignNewIds, saveState, resolveVariables,
@@ -14,6 +15,7 @@ export function openImport(): void {
   const doImportBtn = document.getElementById('doImportBtn') as HTMLElement | null
   const fileInput = document.getElementById('fileInput') as HTMLInputElement | null
   const ta = document.getElementById('importJsonTextarea') as HTMLTextAreaElement | null
+  const curlTa = document.getElementById('importCurlTextarea') as HTMLTextAreaElement | null
   const urlInput = document.getElementById('importUrlInput') as HTMLInputElement | null
   const urlStatus = document.getElementById('importUrlStatus')
 
@@ -21,6 +23,7 @@ export function openImport(): void {
   if (doImportBtn) doImportBtn.style.display = 'none'
   if (fileInput) fileInput.value = ''
   if (ta) ta.value = ''
+  if (curlTa) curlTa.value = ''
   if (urlInput) urlInput.value = ''
   if (urlStatus) urlStatus.textContent = ''
   switchImportTab('file')
@@ -40,21 +43,53 @@ export function switchImportTab(tab: string): void {
   })
   const fileTab = document.getElementById('importTabFile') as HTMLElement | null
   const textTab = document.getElementById('importTabText') as HTMLElement | null
+  const curlTab = document.getElementById('importTabCurl') as HTMLElement | null
   const linkTab = document.getElementById('importTabLink') as HTMLElement | null
   if (fileTab) fileTab.style.display = tab === 'file' ? 'block' : 'none'
   if (textTab) textTab.style.display = tab === 'text' ? 'block' : 'none'
+  if (curlTab) curlTab.style.display = tab === 'curl' ? 'block' : 'none'
   if (linkTab) linkTab.style.display = tab === 'link' ? 'block' : 'none'
 }
 
 export function importFromText(): void {
   const ta = document.getElementById('importJsonTextarea') as HTMLTextAreaElement | null
   const raw = (ta?.value || '').trim()
-  if (!raw) { showNotif('Paste some JSON first', 'error'); return }
+  if (!raw) { showNotif('Paste some JSON or cURL first', 'error'); return }
   try {
     const data = JSON.parse(raw)
     processImportData(data)
   } catch (err: any) {
+    if (looksLikeCurl(raw)) {
+      try {
+        const col = buildCollectionFromCurl(raw)
+        showCollectionImportPreview(col)
+      } catch (e2: any) {
+        showNotif('Invalid JSON and cURL: ' + (e2.message || err.message), 'error')
+      }
+      return
+    }
     showNotif('Invalid JSON: ' + err.message, 'error')
+  }
+}
+
+function looksLikeCurl(s: string): boolean {
+  const t = s.trim()
+  if (/^curl\s/i.test(t)) return true
+  if (/\s--url\s/i.test(t) || /\s-(?:X|H|d)\s/i.test(t)) return true
+  if (/\s--data(?:-raw|-binary|-urlencode)?\s/i.test(t)) return true
+  return false
+}
+
+export function importFromCurlModal(): void {
+  const ta = document.getElementById('importCurlTextarea') as HTMLTextAreaElement | null
+  const raw = (ta?.value || '').trim()
+  if (!raw) { showNotif('Paste a cURL command first', 'error'); return }
+  try {
+    const col = buildCollectionFromCurl(raw)
+    showCollectionImportPreview(col)
+    showNotif('cURL parsed — review and click Import', 'success')
+  } catch (e: any) {
+    showNotif('Failed to parse cURL: ' + (e.message || String(e)), 'error')
   }
 }
 
@@ -114,17 +149,21 @@ function processImportFile(file: File): void {
 
 function processImportData(data: any): void {
   const result = parsePostmanCollection(data)
-  if (result) {
-    state.pendingImport = result
-    const preview = document.getElementById('importPreview') as HTMLElement
-    preview.style.display = 'block'
-    const requests: any[] = []
-    function collectReqs(node: any) {
-      if (node.type === 'request') requests.push(node)
-      if (node.children) node.children.forEach(collectReqs)
-    }
-    result.children.forEach(collectReqs)
-    preview.innerHTML = `
+  if (result) showCollectionImportPreview(result)
+}
+
+function showCollectionImportPreview(result: any): void {
+  state.pendingImport = result
+  const preview = document.getElementById('importPreview') as HTMLElement
+  if (!preview) return
+  preview.style.display = 'block'
+  const requests: any[] = []
+  function collectReqs(node: any) {
+    if (node.type === 'request') requests.push(node)
+    if (node.children) node.children.forEach(collectReqs)
+  }
+  result.children.forEach(collectReqs)
+  preview.innerHTML = `
       <div style="margin-bottom:8px; font-weight:600; color: var(--text-primary);">${escHtml(result.name)}</div>
       <div style="color: var(--text-secondary);">${requests.length} request${requests.length !== 1 ? 's' : ''}, ${result.children.filter((c: any) => c.type === 'folder').length} folder(s)</div>
       <div style="margin-top:8px; max-height:150px; overflow-y:auto;">
@@ -135,9 +174,23 @@ function processImportData(data: any): void {
         ${requests.length > 30 ? `<div style="color:var(--text-dim);font-size:11px">...and ${requests.length - 30} more</div>` : ''}
       </div>
     `
-    const doImportBtn = document.getElementById('doImportBtn') as HTMLElement
-    doImportBtn.style.display = 'inline-flex'
+  const doImportBtn = document.getElementById('doImportBtn') as HTMLElement
+  if (doImportBtn) doImportBtn.style.display = 'inline-flex'
+}
+
+function buildCollectionFromCurl(curlStr: string): any {
+  const req = parseCurl(curlStr)
+  if (!req.url || !String(req.url).trim()) {
+    throw new Error('No URL found in cURL command')
   }
+  let colName = 'Imported from cURL'
+  try {
+    const u = new URL(String(req.url).startsWith('http') ? req.url : 'https://' + req.url)
+    colName = u.hostname + ' — cURL'
+  } catch { /* keep default */ }
+  const col = makeCollection({ name: colName })
+  col.children = [req]
+  return col
 }
 
 function parsePostmanCollection(data: any): any {
@@ -235,6 +288,10 @@ export async function openCurlImport(): Promise<void> {
   if (!curl) return
   try {
     const req = parseCurl(curl)
+    if (!req.url || !String(req.url).trim()) {
+      showNotif('No URL found in cURL command', 'error')
+      return
+    }
     ;(window as any).newTab(req)
     showNotif('Imported from cURL', 'success')
   } catch (e: any) {
@@ -244,33 +301,142 @@ export async function openCurlImport(): Promise<void> {
 
 function parseCurl(curlStr: string): any {
   const req = makeRequest()
-  curlStr = curlStr.replace(/\\\n/g, ' ').trim()
-  if (curlStr.startsWith('curl ')) curlStr = curlStr.substring(5)
+  let s = curlStr.replace(/\r\n/g, '\n').trim()
+  s = s.replace(/\\\n/g, ' ')
+  if (s.toLowerCase().startsWith('curl ')) s = s.slice(5).trim()
 
-  const urlMatch = curlStr.match(/(?:^|\s)(['"]?)(https?:\/\/[^\s'"]+)\1/)
-  if (urlMatch) req.url = urlMatch[2]
+  // Leading env assignments (curl ... on Unix)
+  s = s.replace(/^(\s*[A-Za-z_][A-Za-z0-9_]*=[^\s]+\s+)+/, '')
 
-  const methodMatch = curlStr.match(/-X\s+(\w+)/)
+  // --url
+  const urlFlag = s.match(/--url(?:=|\s+)(['"]?)(https?:\/\/[^\s'"]+)\1/i)
+  if (urlFlag) req.url = urlFlag[2]
+
+  if (!req.url) {
+    const m = s.match(/https?:\/\/[^\s'"]+/)
+    if (m) req.url = m[0].replace(/['"]$/, '')
+  }
+
+  const methodMatch = s.match(/\s(?:-X|--request)\s+(\w+)/i)
   if (methodMatch) req.method = methodMatch[1].toUpperCase()
 
-  const headerRegex = /-H\s+['"]([^'"]+)['"]/g
-  let hm: RegExpExecArray | null
   const headers: any[] = []
-  while ((hm = headerRegex.exec(curlStr)) !== null) {
-    const [key, ...rest] = hm[1].split(':')
-    headers.push({ key: key.trim(), value: rest.join(':').trim(), enabled: true })
+  const hdrD = /(?:^|\s)-H\s+"((?:[^"\\]|\\.)*)"/g
+  let hm: RegExpExecArray | null
+  while ((hm = hdrD.exec(s)) !== null) {
+    const line = hm[1].replace(/\\(.)/g, '$1')
+    const colonIdx = line.indexOf(':')
+    if (colonIdx > 0) {
+      headers.push({
+        key: line.slice(0, colonIdx).trim(),
+        value: line.slice(colonIdx + 1).trim(),
+        enabled: true
+      })
+    }
   }
-  if (headers.length > 0) req.headers = headers
+  const hdrS = /(?:^|\s)-H\s+'((?:[^'\\]|\\.)*)'/g
+  while ((hm = hdrS.exec(s)) !== null) {
+    const line = hm[1].replace(/\\(.)/g, '$1')
+    const colonIdx = line.indexOf(':')
+    if (colonIdx > 0) {
+      headers.push({
+        key: line.slice(0, colonIdx).trim(),
+        value: line.slice(colonIdx + 1).trim(),
+        enabled: true
+      })
+    }
+  }
+  if (headers.length) req.headers = headers
 
-  const dataMatch = curlStr.match(/(?:-d|--data|--data-raw)\s+['"](.+?)['"]/)
-  if (dataMatch) {
-    req.body = dataMatch[1]
+  const formParts: any[] = []
+  const fD = /(?:^|\s)-F\s+"((?:[^"\\]|\\.)*)"/g
+  let fm: RegExpExecArray | null
+  while ((fm = fD.exec(s)) !== null) {
+    const part = fm[1].replace(/\\(.)/g, '$1')
+    const eq = part.indexOf('=')
+    if (eq > 0) {
+      formParts.push({
+        key: part.slice(0, eq).trim(),
+        value: part.slice(eq + 1).trim(),
+        enabled: true
+      })
+    }
+  }
+  const fS = /(?:^|\s)-F\s+'((?:[^'\\]|\\.)*)'/g
+  while ((fm = fS.exec(s)) !== null) {
+    const part = fm[1].replace(/\\(.)/g, '$1')
+    const eq = part.indexOf('=')
+    if (eq > 0) {
+      formParts.push({
+        key: part.slice(0, eq).trim(),
+        value: part.slice(eq + 1).trim(),
+        enabled: true
+      })
+    }
+  }
+  const fBare = /(?:^|\s)-F\s+([^\s'"=]+=[^\s]+)/g
+  while ((fm = fBare.exec(s)) !== null) {
+    const part = fm[1]
+    const eq = part.indexOf('=')
+    if (eq > 0) {
+      formParts.push({
+        key: part.slice(0, eq).trim(),
+        value: part.slice(eq + 1).trim(),
+        enabled: true
+      })
+    }
+  }
+
+  let bodyStr: string | null = null
+  if (!formParts.length) {
+    let md = s.match(/\s(?:-d|--data|--data-raw|--data-binary)\s+"((?:[^"\\]|\\.)*)"/)
+    if (md) bodyStr = md[1].replace(/\\(.)/g, '$1')
+    if (!bodyStr) {
+      const ms = s.match(/\s(?:-d|--data|--data-raw|--data-binary)\s+'((?:[^'\\]|\\.)*)'/)
+      if (ms) bodyStr = ms[1].replace(/\\(.)/g, '$1')
+    }
+    if (!bodyStr) {
+      const dataJson = s.match(/\s(?:-d|--data|--data-raw)\s+(\{[\s\S]*\}|\[[\s\S]*\])(?=\s|$)/)
+      if (dataJson) bodyStr = dataJson[1].trim()
+    }
+    if (!bodyStr) {
+      const dataBare = s.match(/\s(?:-d|--data|--data-raw)\s+(\S+)/)
+      if (dataBare && !/^-[a-zA-Z]/.test(dataBare[1])) bodyStr = dataBare[1]
+    }
+
+    if (bodyStr) {
+      req.body = bodyStr
+      if (!req.method || req.method === 'GET') req.method = 'POST'
+      try {
+        JSON.parse(req.body)
+        req.bodyType = 'json'
+      } catch {
+        req.bodyType = 'raw'
+      }
+    }
+  }
+
+  if (formParts.length) {
+    req.bodyType = 'form'
+    req.bodyForm = formParts
+    req.body = '{}'
     if (!req.method || req.method === 'GET') req.method = 'POST'
-    try { JSON.parse(req.body); req.bodyType = 'json' } catch { req.bodyType = 'raw' }
   }
 
   if (!req.method) req.method = 'GET'
-  req.name = req.url ? req.url.replace(/https?:\/\//, '').split('?')[0].split('/').pop() || 'Request' : 'Request'
+
+  req.name = req.url
+    ? (() => {
+        try {
+          const u = new URL(req.url.startsWith('http') ? req.url : 'https://' + req.url)
+          const seg = u.pathname.split('/').filter(Boolean).pop()
+          return (seg || u.hostname || 'Request').slice(0, 80)
+        } catch {
+          return 'Request'
+        }
+      })()
+    : 'Request'
+
   return req
 }
 
@@ -367,7 +533,7 @@ export function generateCurl(): string {
 
   if (method !== 'GET' && method !== 'HEAD') {
     if (state.currentBodyType === 'json' || state.currentBodyType === 'raw') {
-      const body = resolveVariables((document.getElementById('bodyTextarea') as HTMLTextAreaElement).value)
+      const body = resolveVariables(getBodyEditorText())
       if (body) parts.push(`  -d '${body.replace(/'/g, "'\\''")}'`)
     } else if (state.currentBodyType === 'form') {
       getKvStore('bodyForm').filter((r: any) => r.enabled && r.key).forEach((r: any) => {
@@ -378,7 +544,7 @@ export function generateCurl(): string {
         .map((r: any) => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join('&')
       if (body) parts.push(`  -d '${body}'`)
     } else if (state.currentBodyType === 'graphql') {
-      const query = resolveVariables((document.getElementById('bodyTextarea') as HTMLTextAreaElement).value)
+      const query = resolveVariables(getBodyEditorText())
       const vars = (document.getElementById('graphqlVarsTextarea') as HTMLTextAreaElement)?.value || '{}'
       parts.push(`  -d '${JSON.stringify({ query, variables: JSON.parse(resolveVariables(vars) || '{}') }).replace(/'/g, "'\\''")}'`)
     }
@@ -430,7 +596,7 @@ export function generateCodeSnippet(lang: string): void {
 
   let bodyStr = ''
   if (method !== 'GET' && method !== 'HEAD' && (state.currentBodyType === 'json' || state.currentBodyType === 'raw')) {
-    bodyStr = resolveVariables((document.getElementById('bodyTextarea') as HTMLTextAreaElement).value)
+    bodyStr = resolveVariables(getBodyEditorText())
   }
 
   let code = ''

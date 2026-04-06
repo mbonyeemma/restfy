@@ -34,6 +34,7 @@ export interface RequestNode {
   headers: KvRow[]
   bodyType: BodyType
   body: string
+  graphqlVars?: string
   bodyForm: KvRow[]
   auth: Auth
   preRequestScript: string

@@ -122,6 +122,9 @@ export async function cloudLogout(): Promise<void> {
   _lastSyncAt = 0
   _saveCloudSession()
   renderCloudStatus()
+  // Reset banner to "My Workspace" but keep it visible
+  const nameEl = document.getElementById('workspaceBannerNameText')
+  if (nameEl) nameEl.textContent = 'My Workspace'
 }
 
 export async function cloudSync(): Promise<void> {
@@ -349,6 +352,9 @@ export async function _submitCloudAuth(): Promise<void> {
     closeCloudModal()
     renderCloudStatus()
     cloudSync()
+    if (typeof (window as any).initWorkspaceBanner === 'function') {
+      void (window as any).initWorkspaceBanner()
+    }
   } catch (err: any) {
     errEl.textContent = err.message
     errEl.style.display = 'block'

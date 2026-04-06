@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="assets/icon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
   /* ── Dark Theme (default) ── */
   :root, [data-theme="dark"] {
@@ -42,17 +42,24 @@
     --shadow-color: rgba(0,0,0,0.5);
     --modal-overlay: rgba(0,0,0,0.7);
     --iframe-bg: #fff;
+    /* CodeMirror JSON (matches response preview) */
+    --cm-json-key: #f97b65;
+    --cm-json-string: #4e9de0;
+    --cm-json-number: #d19a66;
+    --cm-json-bool: #c678dd;
+    --cm-json-null: #c678dd;
+    --cm-json-punct: #abb2bf;
   }
 
   /* ── Light Theme (flat, pure white — minimal shadows) ── */
   [data-theme="light"] {
     --bg-darkest: #ffffff;
     --bg-dark: #ffffff;
-    --bg-mid: #f6f6f6;
-    --bg-light: #eeeeee;
-    --bg-lighter: #e8e8e8;
-    --border: #e5e5e5;
-    --border-light: #ebebeb;
+    --bg-mid: #f9f9f9;
+    --bg-light: #f2f2f2;
+    --bg-lighter: #eaeaea;
+    --border: #e8e8e8;
+    --border-light: #f0f0f0;
     --text-primary: #1a1a1a;
     --text-secondary: #555555;
     --text-dim: #888888;
@@ -77,6 +84,12 @@
     --shadow-color: rgba(0,0,0,0.06);
     --modal-overlay: rgba(0,0,0,0.35);
     --iframe-bg: #fff;
+    --cm-json-key: #e05c3a;
+    --cm-json-string: #1a6fb5;
+    --cm-json-number: #b06020;
+    --cm-json-bool: #8833bb;
+    --cm-json-null: #8833bb;
+    --cm-json-punct: #555555;
   }
 
   [data-theme="light"] .url-input:focus,
@@ -136,6 +149,116 @@
     border-right-color: var(--border);
   }
 
+  /* ── Light theme: Postman-style flat overrides ── */
+
+  /* Sidebar — off-white, not pure white, so it reads as a distinct panel */
+  [data-theme="light"] .sidebar { background: #fafafa; border-right-color: var(--border); }
+  [data-theme="light"] .sidebar-header { background: #fafafa; border-bottom-color: var(--border); }
+  [data-theme="light"] .sidebar-modes { background: var(--bg-light); }
+  [data-theme="light"] .sidebar-footer { background: #fafafa; border-top-color: var(--border); }
+  [data-theme="light"] .sidebar-search { background: #ffffff; border-color: var(--border); }
+
+  /* Collection tree — remove card border, use hairline row separators */
+  [data-theme="light"] .tree-collection { border: none; border-radius: 0; border-bottom: 1px solid var(--border-light); margin-bottom: 0; }
+  [data-theme="light"] .tree-folder-header { background: transparent; }
+  [data-theme="light"] .tree-folder-header:hover { background: var(--bg-mid); }
+  [data-theme="light"] .tree-node:hover { background: var(--bg-mid); }
+  [data-theme="light"] .tree-request:hover { background: var(--bg-mid); }
+
+  /* Request bar — blend into white */
+  [data-theme="light"] .request-bar { background: #ffffff; border-bottom: 1px solid var(--border); padding: 10px 16px; }
+
+  /* Method select + URL input — minimal, near-borderless */
+  [data-theme="light"] .method-select { background: transparent; border-color: var(--border); }
+  [data-theme="light"] .url-input { background: transparent; border: 1px solid var(--border); }
+  [data-theme="light"] .url-input:focus { border-color: var(--accent); box-shadow: none; }
+
+  /* Panel tabs */
+  [data-theme="light"] .panel-tabs { background: #ffffff; border-bottom-color: var(--border); }
+  [data-theme="light"] .panel-tab { border-bottom-color: transparent; color: var(--text-secondary); }
+  [data-theme="light"] .panel-tab:hover { color: var(--text-primary); }
+  [data-theme="light"] .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* KV editor — flat rows, no alternating fill, borderless inputs */
+  [data-theme="light"] .kv-editor { background: #ffffff; }
+  [data-theme="light"] .kv-row { background: transparent; border-bottom: 1px solid var(--border-light); border-radius: 0; margin-bottom: 0; padding: 4px 4px; }
+  [data-theme="light"] .kv-row:hover { background: transparent; }
+  [data-theme="light"] .kv-alt { background: transparent; }
+  [data-theme="light"] .kv-input { background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 4px 6px; }
+  [data-theme="light"] .kv-input:focus { border-bottom-color: var(--accent); box-shadow: none; }
+  [data-theme="light"] .add-row-btn { border-style: solid; border-color: var(--border-light); background: transparent; }
+  [data-theme="light"] .add-row-btn:hover { border-color: var(--accent); background: transparent; }
+  [data-theme="light"] .new-collection-btn { border-style: solid; border-color: var(--border); }
+
+  /* Response area — seamless white */
+  [data-theme="light"] .response-area { background: #ffffff; border-top-color: var(--border); }
+  [data-theme="light"] .response-header { background: #ffffff; border-bottom-color: var(--border); }
+  [data-theme="light"] .response-tabs { background: #ffffff; border-bottom-color: var(--border); }
+  [data-theme="light"] .resp-mode-btns { background: #ffffff; border-bottom-color: var(--border); }
+  [data-theme="light"] .response-body { background: #ffffff; }
+  [data-theme="light"] .response-raw { background: #ffffff; }
+
+  /* Body editor */
+  [data-theme="light"] .body-editor-wrapper { background: #ffffff; }
+  [data-theme="light"] .body-toolbar { background: #ffffff; border-bottom-color: var(--border); }
+
+  /* Method badges in sidebar — flat text, no pill background */
+  [data-theme="light"] .req-method-badge { background: transparent !important; padding: 0; border-radius: 0; font-size: 9px; }
+
+  /* Body type buttons — radio-style, no filled pill on active */
+  [data-theme="light"] .body-type-btn { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 4px 8px; color: var(--text-secondary); }
+  [data-theme="light"] .body-type-btn:hover { border-bottom-color: var(--border); color: var(--text-primary); background: transparent; }
+  [data-theme="light"] .body-type-btn.active { background: transparent; border-color: transparent; border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  /* Import / cURL buttons — flat bordered style */
+  [data-theme="light"] .import-btn { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  [data-theme="light"] .import-btn:hover { background: var(--accent); color: #fff; }
+  [data-theme="light"] .curl-import-btn { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  [data-theme="light"] .curl-import-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Sidebar cloud/sync button — flat */
+  [data-theme="light"] .sidebar-cloud-btn { background: transparent; border-color: var(--border); }
+  [data-theme="light"] .sidebar-cloud-btn:hover { background: var(--bg-mid); }
+
+  /* Response tabs — same flat treatment */
+  [data-theme="light"] .response-tab { color: var(--text-secondary); }
+  [data-theme="light"] .response-tab.active { color: var(--accent); }
+
+  /* Auth type selector — flat */
+  [data-theme="light"] .auth-type-select { background: transparent; border-color: var(--border); }
+
+  /* Env selector — flat */
+  [data-theme="light"] .env-selector { background: transparent; border-color: var(--border); }
+  [data-theme="light"] .env-manage-btn { background: transparent; border-color: var(--border); }
+
+  /* Save button — flat */
+  [data-theme="light"] .save-btn { background: transparent; border-color: var(--border); }
+
+  /* Tree count badge — flat */
+  [data-theme="light"] .tree-count { background: transparent; color: var(--text-dim); }
+
+  /* Workspace banner — flat white bar in light mode */
+  [data-theme="light"] .workspace-banner { background: #ffffff; border-bottom: 1px solid var(--border); }
+  [data-theme="light"] .workspace-banner-label { color: var(--text-dim); }
+  [data-theme="light"] .workspace-banner-name { color: var(--text-primary); }
+  [data-theme="light"] .workspace-banner-name:hover { background: var(--bg-mid); }
+  [data-theme="light"] .ws-banner-btn { color: var(--text-secondary); }
+  [data-theme="light"] .ws-banner-btn:hover { background: var(--bg-mid); color: var(--text-primary); }
+
+  /* Titlebar — plain white in light mode */
+  [data-theme="light"] .titlebar { background: #ffffff; border-bottom: 1px solid var(--border); }
+  [data-theme="light"] .tab { background: var(--bg-mid); border-color: transparent; }
+  [data-theme="light"] .tab:hover { background: #ececec; }
+  [data-theme="light"] .tab.active { background: #ffffff; border-color: var(--border); box-shadow: 0 1px 0 #ffffff; }
+  [data-theme="light"] .new-tab-btn { color: var(--text-secondary); }
+
+  /* Env selector flat in light mode */
+  [data-theme="light"] .env-selector { background: transparent; border-color: var(--border); }
+
+  /* Save button flat */
+  [data-theme="light"] .save-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+  [data-theme="light"] .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Inter', sans-serif;
@@ -147,6 +270,156 @@
     flex-direction: column;
     font-size: 13px;
   }
+
+  /* ── WORKSPACE BANNER ── */
+  .workspace-banner {
+    height: 28px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-darkest) 88%);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border) 75%);
+    display: none; /* JS shows this after login check */
+    align-items: center;
+    padding: 0 16px 0 80px;
+    gap: 0;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+    user-select: none;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .workspace-banner-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .workspace-banner-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-app-region: no-drag;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 5px;
+    transition: background 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .workspace-banner-name:hover { background: var(--bg-mid); }
+  .workspace-banner-name .ws-chevron {
+    font-size: 9px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .workspace-banner-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+    margin: 0 8px;
+    flex-shrink: 0;
+  }
+  .workspace-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    -webkit-app-region: no-drag;
+  }
+  .ws-banner-btn {
+    height: 20px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    -webkit-app-region: no-drag;
+  }
+  .ws-banner-btn:hover { background: var(--bg-mid); color: var(--text-primary); }
+  .ws-banner-btn.ws-teams-btn { color: var(--text-secondary); }
+  .ws-banner-btn.ws-teams-btn:hover { color: var(--accent); }
+  .workspace-banner-spacer { flex: 1; }
+
+  /* Workspace switcher dropdown */
+  .ws-switcher-menu {
+    position: fixed;
+    top: 30px;
+    left: 80px;
+    min-width: 240px;
+    max-width: 320px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    z-index: 9999;
+    overflow: hidden;
+    padding: 6px 0;
+  }
+  .ws-switcher-header {
+    padding: 6px 12px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+  }
+  .ws-switcher-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .ws-switcher-item:hover { background: var(--bg-light); }
+  .ws-switcher-item.active { color: var(--accent); }
+  .ws-switcher-item.active .ws-switcher-check { opacity: 1; }
+  .ws-switcher-check { font-size: 10px; color: var(--accent); opacity: 0; width: 12px; flex-shrink: 0; }
+  .ws-switcher-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .ws-switcher-info { flex: 1; min-width: 0; }
+  .ws-switcher-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-switcher-role { font-size: 10px; color: var(--text-dim); }
+  .ws-switcher-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .ws-switcher-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: background 0.1s, color 0.1s;
+  }
+  .ws-switcher-action:hover { background: var(--bg-light); color: var(--accent); }
+  .ws-switcher-action-icon { width: 24px; text-align: center; font-size: 14px; }
 
   /* ── TITLEBAR ── */
   .titlebar {
@@ -267,9 +540,9 @@
   .method-select option { color: var(--text-primary); background: var(--bg-mid); }
   .url-input-wrap { flex: 1; min-width: 0; display: flex; align-items: stretch; position: relative; }
   .url-input-wrap .url-input { width: 100%; min-width: 0; }
-  .url-input { flex: 1; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; outline: none; transition: all 0.15s; }
+  .url-input { flex: 1; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text-primary); font-size: 13px; font-weight: 300; font-family: 'JetBrains Mono', monospace; outline: none; transition: all 0.15s; }
   .url-input.url-has-vars { color: transparent; caret-color: var(--text-primary); }
-  .url-highlight-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 7px 12px; border: 1px solid transparent; border-radius: 6px; font-size: 13px; font-family: 'JetBrains Mono', monospace; pointer-events: none; white-space: nowrap; overflow: hidden; color: var(--text-primary); display: none; line-height: normal; }
+  .url-highlight-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 7px 12px; border: 1px solid transparent; border-radius: 6px; font-size: 13px; font-weight: 300; font-family: 'JetBrains Mono', monospace; pointer-events: none; white-space: nowrap; overflow: hidden; color: var(--text-primary); display: none; line-height: normal; }
   .var-token { color: var(--blue); }
   [data-theme="light"] .var-token { color: var(--blue); }
   .url-input.url-input--var-hover { cursor: help; }
@@ -453,13 +726,14 @@
   .format-btn:hover { border-color: var(--accent); color: var(--accent); }
   .body-size { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
-  /* Body editor with line numbers and syntax highlighting */
-  .body-editor-wrapper { flex: 1; position: relative; display: flex; overflow: hidden; background: var(--bg-darkest); }
-  .body-line-numbers { width: 40px; background: var(--bg-dark); border-right: 1px solid var(--border); padding: 12px 0; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; text-align: right; overflow: hidden; user-select: none; flex-shrink: 0; display: none; }
-  .body-line-numbers div { padding: 0 8px 0 4px; }
-  .body-highlight-overlay { position: absolute; top: 0; left: 40px; right: 0; bottom: 0; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; overflow: hidden; pointer-events: none; display: none; z-index: 1; color: var(--text-primary); tab-size: 2; }
-  .body-textarea { flex: 1; background: transparent; border: none; padding: 12px; color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; line-height: 1.6; resize: none; outline: none; tab-size: 2; z-index: 2; position: relative; }
-  .body-textarea::placeholder { color: var(--text-dim); font-family: 'Inter', sans-serif; font-style: italic; }
+  /* Body editor — CodeMirror host + hidden textarea (sync / GraphQL bridge) */
+  .body-editor-wrapper { flex: 1; position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--bg-darkest); }
+  .body-cm-root { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .body-cm-root .cm-editor { height: 100%; }
+  .body-cm-root .cm-scroller { font-family: 'JetBrains Mono', monospace !important; }
+  .body-textarea { display: none; }
+  .body-textarea--visible { display: block; flex: 1; background: transparent; border: none; padding: 12px; color: var(--text-primary); font-size: 13px; font-weight: 300; font-family: 'JetBrains Mono', monospace; line-height: 1.6; resize: none; outline: none; tab-size: 2; }
+  .body-textarea--visible::placeholder { color: var(--text-dim); font-family: 'Inter', sans-serif; font-style: italic; }
   .graphql-container { display: flex; flex: 1; overflow: hidden; }
   .graphql-container .body-editor-wrapper { flex: 1; border-right: 1px solid var(--border); }
   .graphql-vars-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 12px 0; background: var(--bg-darkest); }
@@ -516,27 +790,27 @@
   .resp-mode-btn.active { background: var(--bg-light); color: var(--text-primary); }
   .resp-mode-btn:hover:not(.active) { color: var(--text-secondary); }
 
-  .response-body { flex: 1; overflow: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: var(--bg-darkest); }
+  .response-body { flex: 1; overflow: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 300; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: var(--bg-darkest); }
   .response-body::-webkit-scrollbar { width: 6px; height: 6px; }
   .response-body::-webkit-scrollbar-track { background: transparent; }
   .response-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  .response-raw { flex: 1; overflow: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: var(--bg-darkest); display: none; }
+  .response-raw { flex: 1; overflow: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 300; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: var(--bg-darkest); display: none; }
   .response-preview { flex: 1; border: none; background: var(--iframe-bg); display: none; }
   .response-placeholder { color: var(--text-dim); font-style: italic; font-family: 'Inter', sans-serif; font-size: 13px; padding: 40px; text-align: center; }
   .response-placeholder .icon { font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.3; }
 
-  /* JSON highlighting */
-  .json-key { color: #9ecbff; }
-  .json-string { color: #a5d6ff; }
-  .json-number { color: #f8c555; }
-  .json-bool { color: #ff7b72; }
-  .json-null { color: #ff7b72; }
+  /* JSON highlighting — Postman-style palette */
+  .json-key    { color: #f97b65; }   /* orange-red  — keys  */
+  .json-string { color: #4e9de0; }   /* link-blue   — string values  */
+  .json-number { color: #d19a66; }   /* warm amber  — numbers        */
+  .json-bool   { color: #c678dd; }   /* purple      — Postman boolean       */
+  .json-null   { color: #c678dd; }   /* purple      — Postman null          */
 
-  [data-theme="light"] .json-key { color: #0550ae; }
-  [data-theme="light"] .json-string { color: #0a3069; }
-  [data-theme="light"] .json-number { color: #953800; }
-  [data-theme="light"] .json-bool { color: #cf222e; }
-  [data-theme="light"] .json-null { color: #cf222e; }
+  [data-theme="light"] .json-key    { color: #e05c3a; }
+  [data-theme="light"] .json-string { color: #1a6fb5; }
+  [data-theme="light"] .json-number { color: #b06020; }
+  [data-theme="light"] .json-bool   { color: #8833bb; }
+  [data-theme="light"] .json-null   { color: #8833bb; }
 
   /* XML highlighting */
   .xml-tag { color: #ff7b72; }
@@ -565,7 +839,15 @@
   .test-error { font-size: 11px; color: var(--text-dim); margin-left: auto; }
 
   /* ── Collection Docs ── */
-  .collection-docs { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .collection-docs { flex: 1; display: none; flex-direction: column; overflow: hidden; min-height: 0; }
+  .cdocs-split { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+  .cdocs-editor-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .cdocs-preview-pane { width: min(42%, 480px); min-width: 280px; border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; background: var(--bg-mid); contain: layout paint; }
+  .cdocs-preview-header { padding: 8px 14px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #cdocsPreviewFrame { flex: 1; width: 100%; border: none; min-height: 0; background: var(--bg-page); display: block; }
+  @media (max-width: 1024px) {
+    .cdocs-preview-pane { display: none; }
+  }
   .cdocs-topbar { padding: 0 20px; height: 42px; display: flex; align-items: center; background: var(--bg-dark); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 12px; }
   .cdocs-topbar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cdocs-topbar-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
@@ -577,7 +859,7 @@
   .cdocs-tab:hover { color: var(--text-primary); }
   .cdocs-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
   .cdocs-tab .cdocs-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-left: 5px; vertical-align: middle; }
-  .cdocs-body { flex: 1; overflow-y: auto; }
+  .cdocs-body { flex: 1; min-height: 0; overflow-y: auto; }
   .cdocs-panel { display: none; }
   .cdocs-panel.active { display: block; }
 
@@ -622,6 +904,9 @@
   .cdocs-folder-section { margin-bottom: 20px; }
   .cdocs-folder-heading { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 12px 0 4px; display: flex; align-items: center; gap: 8px; }
   .cdocs-folder-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; font-style: italic; }
+  .cdocs-folder-desc-input { min-height: 40px; margin-bottom: 10px; font-size: 12px; }
+  .cdocs-req-desc-wrap { padding: 0 14px 10px; }
+  .cdocs-req-desc-input { min-height: 44px; font-size: 12px; }
   .cdocs-folder-auth-row { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; padding: 6px 10px; background: var(--bg-mid); border-radius: 4px; display: flex; align-items: center; gap: 6px; }
   .cdocs-folder-auth-row strong { color: var(--text-secondary); font-weight: 600; }
   .cdocs-req-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; transition: border-color .12s; }
@@ -817,13 +1102,14 @@
   .bg-HEAD { background: rgba(34,211,238,0.1); }
   .bg-OPTIONS { background: rgba(251,146,60,0.1); }
 
-  [data-theme="light"] .bg-GET { background: rgba(22,163,74,0.08); }
-  [data-theme="light"] .bg-POST { background: rgba(202,138,4,0.08); }
-  [data-theme="light"] .bg-PUT { background: rgba(37,99,235,0.08); }
-  [data-theme="light"] .bg-PATCH { background: rgba(124,58,237,0.08); }
-  [data-theme="light"] .bg-DELETE { background: rgba(220,38,38,0.08); }
-  [data-theme="light"] .bg-HEAD { background: rgba(8,145,178,0.08); }
-  [data-theme="light"] .bg-OPTIONS { background: rgba(234,88,12,0.08); }
+  /* In light mode, method badge pills in the sidebar are flat text — no background fill */
+  [data-theme="light"] .bg-GET { background: transparent; }
+  [data-theme="light"] .bg-POST { background: transparent; }
+  [data-theme="light"] .bg-PUT { background: transparent; }
+  [data-theme="light"] .bg-PATCH { background: transparent; }
+  [data-theme="light"] .bg-DELETE { background: transparent; }
+  [data-theme="light"] .bg-HEAD { background: transparent; }
+  [data-theme="light"] .bg-OPTIONS { background: transparent; }
 
   [data-theme="light"] .status-2xx { background: rgba(22,163,74,0.08); color: var(--green); }
   [data-theme="light"] .status-3xx { background: rgba(202,138,4,0.08); color: var(--yellow); }
@@ -863,6 +1149,26 @@
   <option value="X-Requested-With">
 </datalist>
 
+<!-- WORKSPACE BANNER -->
+<div class="workspace-banner" id="workspaceBanner">
+  <span class="workspace-banner-label">Workspace</span>
+  <button class="workspace-banner-name" id="workspaceBannerName" onclick="toggleWsSwitcher()" title="Switch workspace">
+    <span id="workspaceBannerNameText">Loading…</span>
+    <span class="ws-chevron">▾</span>
+  </button>
+  <div class="workspace-banner-sep"></div>
+  <div class="workspace-banner-actions">
+    <button class="ws-banner-btn ws-teams-btn" onclick="openTeamsModal()" title="Teams in this workspace">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Teams
+    </button>
+    <button class="ws-banner-btn" onclick="inviteToActiveWorkspace()" title="Invite to workspace">
+      + Invite
+    </button>
+  </div>
+  <div class="workspace-banner-spacer"></div>
+</div>
+
 <!-- TITLEBAR -->
 <div class="titlebar">
   <div class="logo" style="margin-left:68px;">
@@ -872,7 +1178,7 @@
   <div class="titlebar-tabs" id="tabsBar" role="tablist"></div>
   <button class="new-tab-btn" onclick="newTab()" title="New request (Ctrl+N)">+</button>
   <div class="titlebar-right">
-    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode">&#9790;</button>
+    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     <select class="env-selector" id="envSelector" title="Active Environment">
       <option value="">No Environment</option>
     </select>
@@ -920,79 +1226,87 @@
 
     <!-- COLLECTION DOCUMENTATION -->
     <div id="collectionDocs" class="collection-docs">
-      <!-- Top bar -->
-      <div class="cdocs-topbar">
-        <span class="cdocs-topbar-name" id="cdocsTopbarName"></span>
-        <div class="cdocs-topbar-actions">
-          <button class="cdocs-topbar-btn" id="cdocsPublishBtn" title="Download documentation as shareable HTML">
-            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            Publish docs
-          </button>
-          <button class="cdocs-topbar-btn" id="cdocsCopyLinkBtn" title="Copy collection JSON to clipboard">
-            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            Copy link
-          </button>
-        </div>
-      </div>
-      <!-- Tabs -->
-      <div class="cdocs-tabs" id="cdocsTabsBar">
-        <button class="cdocs-tab active" data-cdocs-tab="overview" onclick="switchCDocsTab('overview')">Overview</button>
-        <button class="cdocs-tab" data-cdocs-tab="authorization" onclick="switchCDocsTab('authorization')">Authorization</button>
-        <button class="cdocs-tab" data-cdocs-tab="scripts" onclick="switchCDocsTab('scripts')">Scripts</button>
-        <button class="cdocs-tab" data-cdocs-tab="variables" onclick="switchCDocsTab('variables')">Variables</button>
-        <button class="cdocs-tab" data-cdocs-tab="runs" onclick="switchCDocsTab('runs')">Runs</button>
-      </div>
-      <!-- Body -->
-      <div class="cdocs-body">
-        <!-- Overview panel -->
-        <div class="cdocs-panel active" id="cdocsPanelOverview">
-          <div class="cdocs-overview">
-            <div class="cdocs-overview-title" id="cdocsOverviewTitle"></div>
-            <div class="cdocs-overview-meta" id="cdocsOverviewMeta"></div>
-            <div class="cdocs-desc-area">
-              <textarea class="cdocs-desc" id="cdocsDesc" placeholder="Add collection description..."></textarea>
+      <div class="cdocs-split">
+        <div class="cdocs-editor-pane">
+          <!-- Top bar -->
+          <div class="cdocs-topbar">
+            <span class="cdocs-topbar-name" id="cdocsTopbarName"></span>
+            <div class="cdocs-topbar-actions">
+              <button class="cdocs-topbar-btn" id="cdocsPublishBtn" title="Download documentation as shareable HTML">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                Publish docs
+              </button>
+              <button class="cdocs-topbar-btn" id="cdocsCopyLinkBtn" title="Copy collection JSON to clipboard">
+                <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                Copy link
+              </button>
             </div>
-            <a class="cdocs-view-docs-link" id="cdocsViewDocsLink">View complete documentation &rarr;</a>
           </div>
-          <div id="cdocsFullDocs" class="cdocs-full-docs" style="display:none"></div>
-        </div>
-        <!-- Authorization panel -->
-        <div class="cdocs-panel" id="cdocsPanelAuthorization">
-          <div class="cdocs-auth-section" id="cdocsAuthContent"></div>
-        </div>
-        <!-- Scripts panel -->
-        <div class="cdocs-panel" id="cdocsPanelScripts">
-          <div class="cdocs-scripts-section">
-            <div class="cdocs-script-block">
-              <div class="cdocs-script-label">Pre-request Script</div>
-              <textarea class="cdocs-script-editor" id="cdocsPreScript" placeholder="// JavaScript to run before each request in this collection"></textarea>
+          <!-- Tabs -->
+          <div class="cdocs-tabs" id="cdocsTabsBar">
+            <button class="cdocs-tab active" data-cdocs-tab="overview" onclick="switchCDocsTab('overview')">Overview</button>
+            <button class="cdocs-tab" data-cdocs-tab="authorization" onclick="switchCDocsTab('authorization')">Authorization</button>
+            <button class="cdocs-tab" data-cdocs-tab="scripts" onclick="switchCDocsTab('scripts')">Scripts</button>
+            <button class="cdocs-tab" data-cdocs-tab="variables" onclick="switchCDocsTab('variables')">Variables</button>
+            <button class="cdocs-tab" data-cdocs-tab="runs" onclick="switchCDocsTab('runs')">Runs</button>
+          </div>
+          <!-- Body -->
+          <div class="cdocs-body">
+            <!-- Overview panel -->
+            <div class="cdocs-panel active" id="cdocsPanelOverview">
+              <div class="cdocs-overview">
+                <div class="cdocs-overview-title" id="cdocsOverviewTitle"></div>
+                <div class="cdocs-overview-meta" id="cdocsOverviewMeta"></div>
+                <div class="cdocs-desc-area">
+                  <textarea class="cdocs-desc" id="cdocsDesc" placeholder="Add collection description..."></textarea>
+                </div>
+                <a class="cdocs-view-docs-link" id="cdocsViewDocsLink">View complete documentation &rarr;</a>
+              </div>
+              <div id="cdocsFullDocs" class="cdocs-full-docs" style="display:none"></div>
             </div>
-            <div class="cdocs-script-block">
-              <div class="cdocs-script-label">Test Script</div>
-              <textarea class="cdocs-script-editor" id="cdocsTestScript" placeholder="// JavaScript to run after each request in this collection"></textarea>
+            <!-- Authorization panel -->
+            <div class="cdocs-panel" id="cdocsPanelAuthorization">
+              <div class="cdocs-auth-section" id="cdocsAuthContent"></div>
             </div>
-            <button class="btn-primary" id="cdocsSaveScriptsBtn">Save Scripts</button>
+            <!-- Scripts panel -->
+            <div class="cdocs-panel" id="cdocsPanelScripts">
+              <div class="cdocs-scripts-section">
+                <div class="cdocs-script-block">
+                  <div class="cdocs-script-label">Pre-request Script</div>
+                  <textarea class="cdocs-script-editor" id="cdocsPreScript" placeholder="// JavaScript to run before each request in this collection"></textarea>
+                </div>
+                <div class="cdocs-script-block">
+                  <div class="cdocs-script-label">Test Script</div>
+                  <textarea class="cdocs-script-editor" id="cdocsTestScript" placeholder="// JavaScript to run after each request in this collection"></textarea>
+                </div>
+                <button class="btn-primary" id="cdocsSaveScriptsBtn">Save Scripts</button>
+              </div>
+            </div>
+            <!-- Variables panel -->
+            <div class="cdocs-panel" id="cdocsPanelVariables">
+              <div class="cdocs-vars-section">
+                <div class="cdocs-vars-header">
+                  <span class="cdocs-vars-title">Collection Variables</span>
+                  <button class="add-row-btn" onclick="addKvRow('cdocsVarsEditor', 'cdocsVars')">+ Add Variable</button>
+                </div>
+                <div class="kv-editor" id="cdocsVarsEditor"></div>
+                <button class="btn-primary" id="cdocsSaveVarsBtn" style="margin-top:12px">Save Variables</button>
+              </div>
+            </div>
+            <!-- Runs panel -->
+            <div class="cdocs-panel" id="cdocsPanelRuns">
+              <div class="cdocs-runs-section">
+                <div class="cdocs-runs-empty" id="cdocsRunsContent">
+                  No runs yet. Click <strong>Run</strong> below to execute all requests in this collection.
+                </div>
+                <button class="btn-primary" id="cdocsRunCollectionBtn">Run Collection</button>
+              </div>
+            </div>
           </div>
         </div>
-        <!-- Variables panel -->
-        <div class="cdocs-panel" id="cdocsPanelVariables">
-          <div class="cdocs-vars-section">
-            <div class="cdocs-vars-header">
-              <span class="cdocs-vars-title">Collection Variables</span>
-              <button class="add-row-btn" onclick="addKvRow('cdocsVarsEditor', 'cdocsVars')">+ Add Variable</button>
-            </div>
-            <div class="kv-editor" id="cdocsVarsEditor"></div>
-            <button class="btn-primary" id="cdocsSaveVarsBtn" style="margin-top:12px">Save Variables</button>
-          </div>
-        </div>
-        <!-- Runs panel -->
-        <div class="cdocs-panel" id="cdocsPanelRuns">
-          <div class="cdocs-runs-section">
-            <div class="cdocs-runs-empty" id="cdocsRunsContent">
-              No runs yet. Click <strong>Run</strong> below to execute all requests in this collection.
-            </div>
-            <button class="btn-primary" id="cdocsRunCollectionBtn">Run Collection</button>
-          </div>
+        <div class="cdocs-preview-pane" id="cdocsPreviewPane">
+          <div class="cdocs-preview-header">Published preview</div>
+          <iframe id="cdocsPreviewFrame" title="Published documentation preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
       </div>
     </div>
@@ -1095,9 +1409,8 @@
           </div>
           <div id="bodyTextContainer" style="flex:1; display:none; overflow:hidden; flex-direction:column;">
             <div class="body-editor-wrapper">
-              <div class="body-line-numbers" id="bodyLineNumbers"></div>
-              <div class="body-highlight-overlay" id="bodyHighlightOverlay"></div>
-              <textarea class="body-textarea" id="bodyTextarea" placeholder='{"key": "value"}' oninput="updateBodySize(); updateBodyHighlight();" onscroll="syncBodyScroll()"></textarea>
+              <textarea class="body-textarea" id="bodyTextarea" placeholder='{"key": "value"}' aria-hidden="true"></textarea>
+              <div class="body-cm-root" id="bodyCmRoot"></div>
             </div>
           </div>
           <div id="bodyFormContainer" style="flex:1; display:none; overflow:hidden; flex-direction:column;">

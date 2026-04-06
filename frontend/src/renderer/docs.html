@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -136,6 +136,7 @@ code,pre{font-family:'JetBrains Mono',monospace}
 
 .folder-section{border-bottom:1px solid var(--border)}
 .folder-header{padding:18px 48px 14px;background:var(--bg-sidebar);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)}
+.folder-desc{padding:0 48px 14px;font-size:13px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;border-bottom:1px solid var(--border)}
 .folder-icon{font-size:16px}
 .folder-name{font-size:16px;font-weight:700}
 .folder-auth-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-left:8px}
@@ -214,6 +215,7 @@ code,pre{font-family:'JetBrains Mono',monospace}
   .ep-left{padding:24px 20px}
   .collection-hero{padding:28px 20px}
   .folder-header{padding:14px 20px}
+  .folder-desc{padding:0 20px 12px}
   .base-url-bar{padding:12px 20px}
   .intro-auth{padding:12px 20px}
 }
@@ -230,7 +232,7 @@ code,pre{font-family:'JetBrains Mono',monospace}
   <div class="topbar-title" id="topbarTitle">Loading…</div>
   <div class="topbar-meta" id="topbarMeta"></div>
   <div class="topbar-actions">
-    <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">☾</button>
+    <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">☀</button>
     <a class="btn-open" id="openBtn" href="#" target="_blank" rel="noopener">↗ Open in Restify</a>
   </div>
 </div>

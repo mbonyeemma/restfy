@@ -46,6 +46,10 @@ let _cloudToken: string | null = null
 let _syncInProgress = false
 let _lastSyncAt = 0
 
+export function isCloudLoggedIn(): boolean {
+  return !!_cloudToken
+}
+
 function _cloudHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (_cloudToken) h['Authorization'] = 'Bearer ' + _cloudToken
@@ -75,10 +79,6 @@ function _saveCloudSession(): void {
     localStorage.removeItem(LS_CLOUD_SESSION)
     localStorage.removeItem(LS_CLOUD_SESSION_LEGACY)
   }
-}
-
-export function isCloudLoggedIn(): boolean {
-  return !!_cloudToken
 }
 
 export function getCloudUser(): any {

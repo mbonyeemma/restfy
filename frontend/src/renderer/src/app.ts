@@ -28,7 +28,7 @@ import {
 } from './modules/codegen'
 import { shareCollection, closeShareModal, copyShareUrl, checkAutoImport } from './modules/share'
 import {
-  cloudSync, renderCloudStatus, openCloudModal, closeCloudModal,
+  cloudSync, isCloudLoggedIn, renderCloudStatus, openCloudModal, closeCloudModal,
   _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
   cloudForgotPassword, maybeOpenPasswordResetFromUrl
 } from './modules/cloud'
@@ -184,7 +184,13 @@ async function init() {
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 'n') { e.preventDefault(); newTab() }
     if (mod && e.key === 'w') { e.preventDefault(); if (state.activeTabId) closeTab(state.activeTabId) }
-    if (mod && e.key === 's') { e.preventDefault(); if (state.activeTabId) openSaveModal() }
+    if (mod && e.key === 's') {
+      e.preventDefault()
+      if (state.activeTabId) saveCurrentTabState()
+      saveState({ forceDisk: true })
+      if (isCloudLoggedIn()) void cloudSync()
+      else showNotif('Saved locally', 'success')
+    }
     if (mod && e.key === 'l') { e.preventDefault(); (document.getElementById('urlInput') as HTMLInputElement)?.focus() }
     if (mod && e.key === 'Enter') { e.preventDefault(); sendRequest() }
     if (mod && e.key === 'e') { e.preventDefault(); openEnvManager() }

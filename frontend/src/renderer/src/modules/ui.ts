@@ -182,6 +182,12 @@ function loadTabState(id: string) {
   const t = state.tabs.find(t => t.id === id)
   const d = state.tabData[id]
   if (!t || !d) return
+
+  // Destroy any live CodeMirror instance before loading new tab state so stale
+  // editor content can never bleed into the incoming tab. This must happen
+  // before we touch the hidden textarea or call setBodyType/refreshBodyEditor.
+  destroyBodyEditor()
+
   ;(document.getElementById('methodSelect') as HTMLSelectElement).value = t.method || 'GET'
   ;(document.getElementById('urlInput') as HTMLInputElement).value = t.url || ''
   updateMethodColor(); updateUrlHighlight()
@@ -189,17 +195,29 @@ function loadTabState(id: string) {
   renderKvEditor('headersEditor', d.headers, 'headers')
   renderInheritedHeaders(); renderAutoHeaders(); updateHeaderBadge()
   renderKvEditor('bodyFormEditor', d.bodyForm, 'bodyForm')
-  ;(document.getElementById('bodyTextarea') as HTMLTextAreaElement).value = d.body ?? ''
-  setBodyType(d.bodyType || 'none', null, true)
+
+  // Capture body content once so every branch below uses the same value and
+  // we never accidentally fall back to whatever the textarea held previously.
+  const bodyContent = d.body ?? ''
+  ;(document.getElementById('bodyTextarea') as HTMLTextAreaElement).value = bodyContent
+
   const bt = d.bodyType || 'none'
+
+  // silent=true → updates visibility/state flags without trying to rebuild the
+  // CM editor (we do that explicitly below for json/raw).
+  setBodyType(bt, null, true)
+
   if (bt === 'json' || bt === 'raw') {
-    refreshBodyEditor(bt === 'json' ? 'json' : 'raw', d.body ?? '')
+    // Pass bodyContent explicitly so refreshBodyEditor never falls back to a
+    // stale textarea value that might still reflect the previous tab.
+    refreshBodyEditor(bt === 'json' ? 'json' : 'raw', bodyContent)
     _updateBodySize()
   }
+
   const gv = document.getElementById('graphqlVarsTextarea') as HTMLTextAreaElement | null
   if (gv) gv.value = d.graphqlVars || ''
   const bt2 = document.getElementById('bodyTextarea2') as HTMLTextAreaElement | null
-  if (bt2) bt2.value = d.body || ''
+  if (bt2) bt2.value = bodyContent
   ;(document.getElementById('authType') as HTMLSelectElement).value = d.auth ? d.auth.type || 'none' : 'none'
   updateAuthFields(d.auth)
   const prs = document.getElementById('preRequestScriptEditor') as HTMLTextAreaElement | null

@@ -12,5 +12,6 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   quitAndInstall: () => electron.ipcRenderer.invoke("quit-and-install"),
   onUpdateStatus: (callback) => {
     electron.ipcRenderer.on("update-status", (_e, payload) => callback(payload));
-  }
+  },
+  openExternal: (url) => electron.ipcRenderer.invoke("open-external", url)
 });

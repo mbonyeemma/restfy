@@ -98,6 +98,26 @@ Output: `frontend/dist/` (`.dmg` and related artifacts).
 npm run publish:dmg
 ```
 
+**Windows and Linux** (same `GH_TOKEN` in `frontend/.env`): from `frontend/`, run one of:
+
+```bash
+npm run publish:win-linux
+```
+
+```bash
+npm run publish:win
+```
+
+```bash
+npm run publish:linux
+```
+
+- **`publish:win`** — NSIS installer + portable `.exe` (see `package.json` → `build.win`).
+- **`publish:linux`** — AppImage + `.deb`.
+- **`publish:win-linux`** — both platforms in one command.
+
+Windows and Linux artifacts are easiest to build on **Windows** / **Linux** or in **CI**; building them on macOS may require extra tooling or fail—use the same npm scripts on the appropriate runner.
+
 The script loads `.env` via `dotenv-cli` (that file is **gitignored**—never commit it). You can still use `export GH_TOKEN=…` in the shell instead if you prefer.
 
 **Version:** The app version lives in `frontend/package.json` (`version`). The web UI also reads `frontend/js/app-version.js` (`RESTIFY_APP_VERSION`)—keep both in sync when you ship a new release.

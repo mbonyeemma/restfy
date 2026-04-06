@@ -3,6 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function () {
+  // When the host falls back to this SPA for /docs/* (no server rewrite to docs.html), load the real docs page.
+  try {
+    var path = window.location.pathname || ''
+    var m = path.match(/^\/docs\/(.+?)\/?$/)
+    if (!m) return
+    var slug = decodeURIComponent(m[1])
+    var next = '/docs.html?slug=' + encodeURIComponent(slug)
+    var qs = window.location.search
+    if (qs && qs.length > 1) next += '&' + qs.slice(1)
+    window.location.replace(next)
+  } catch (e) {}
+})()
+</script>
 <title>Restify — API Client</title>
 <link rel="icon" type="image/png" href="assets/icon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">

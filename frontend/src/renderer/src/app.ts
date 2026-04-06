@@ -47,6 +47,30 @@ import {
 initConfigDomains()
 initApiBase()
 
+/** True while waiting for electron-updater response after user clicked “Check for updates”. */
+let _manualUpdateCheck = false
+
+export function checkForAppUpdates(): void {
+  if (!window.electronAPI?.checkForUpdates) {
+    showNotif('App updates are checked from the installed desktop app (Electron).', 'info')
+    return
+  }
+  _manualUpdateCheck = true
+  showNotif('Checking for updates…', 'info')
+  void window.electronAPI
+    .checkForUpdates()
+    .then((r) => {
+      if (r?.dev) {
+        _manualUpdateCheck = false
+        showNotif('Updates are only checked in packaged builds, not dev mode.', 'info')
+      }
+    })
+    .catch(() => {
+      _manualUpdateCheck = false
+      showNotif('Could not reach the update server.', 'error')
+    })
+}
+
 // Expose all public functions globally so HTML onclick handlers work
 Object.assign(window, {
   // Tabs
@@ -80,8 +104,8 @@ Object.assign(window, {
   exportEnvironments, importEnvironments,
   // URL variable hover
   hideUrlVarPopover, setupUrlVariableHover, setupInputVarTooltips,
-  // Version
-  renderSidebarAppVersion, getAutoHeaders,
+  // Version / updates
+  renderSidebarAppVersion, getAutoHeaders, checkForAppUpdates,
   // Import/Export/Codegen
   openImport, closeImport, switchImportTab, importFromText, importFromUrl,
   handleDragOver, handleDragLeave, handleDrop, handleFileSelect, doImport,
@@ -253,7 +277,6 @@ async function init() {
 
 function setupElectronUpdateListener() {
   if (!window.electronAPI?.onUpdateStatus) return
-  let _manualUpdateCheck = false
   window.electronAPI.onUpdateStatus((p) => {
     if (!p?.event) return
     if (p.event === 'available') {

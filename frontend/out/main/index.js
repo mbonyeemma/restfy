@@ -76,6 +76,12 @@ electron.ipcMain.on("window-maximize", () => {
 electron.ipcMain.on("window-close", () => {
   win?.close();
 });
+electron.ipcMain.handle("open-external", async (_e, url) => {
+  const u = typeof url === "string" ? url.trim() : "";
+  if (!/^https?:\/\//i.test(u)) return false;
+  await electron.shell.openExternal(u);
+  return true;
+});
 electron.ipcMain.handle("persist-restify-state", async (_e, jsonString) => {
   try {
     await promises.writeFile(stateFilePath(), jsonString, "utf8");

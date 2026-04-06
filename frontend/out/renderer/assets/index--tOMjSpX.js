@@ -27162,7 +27162,10 @@ async function renderSidebarAppVersion() {
     } catch {
     }
   }
-  row.innerHTML = `<span style="font-size:11px;color:var(--text-dim)">Restify v${v}</span>`;
+  row.innerHTML = `
+    <span class="sidebar-version-text">Restify v${escHtml(v)}</span>
+    <button type="button" class="sidebar-check-update" onclick="checkForAppUpdates()" title="Check for a newer version">Check for updates</button>
+  `;
 }
 function runPreRequestScript(script, context) {
   if (!script || !script.trim()) return;
@@ -28153,7 +28156,22 @@ function showShareResult(result, name2) {
   if (nameEl) nameEl.textContent = name2;
   if (docUrlEl) docUrlEl.value = result.docUrl;
   if (importUrlEl) importUrlEl.value = result.importUrl;
-  if (docLinkEl) docLinkEl.href = result.docUrl;
+  if (docLinkEl) {
+    docLinkEl.href = result.docUrl;
+    docLinkEl.rel = "noopener noreferrer";
+    docLinkEl.onclick = (e) => {
+      e.preventDefault();
+      const u = (docUrlEl?.value || result.docUrl || "").trim();
+      if (!u) return;
+      const api = window.electronAPI;
+      if (api?.openExternal) {
+        void api.openExternal(u);
+      } else {
+        window.open(u, "_blank", "noopener,noreferrer");
+      }
+      closeShareModal();
+    };
+  }
   shareModal?.classList.add("open");
 }
 function closeShareModal() {
@@ -29640,6 +29658,24 @@ function openTeamsInActiveWorkspace() {
 }
 initConfigDomains();
 initApiBase();
+let _manualUpdateCheck = false;
+function checkForAppUpdates() {
+  if (!window.electronAPI?.checkForUpdates) {
+    showNotif("App updates are checked from the installed desktop app (Electron).", "info");
+    return;
+  }
+  _manualUpdateCheck = true;
+  showNotif("Checking for updates…", "info");
+  void window.electronAPI.checkForUpdates().then((r) => {
+    if (r?.dev) {
+      _manualUpdateCheck = false;
+      showNotif("Updates are only checked in packaged builds, not dev mode.", "info");
+    }
+  }).catch(() => {
+    _manualUpdateCheck = false;
+    showNotif("Could not reach the update server.", "error");
+  });
+}
 Object.assign(window, {
   // Tabs
   newTab,
@@ -29729,9 +29765,10 @@ Object.assign(window, {
   hideUrlVarPopover,
   setupUrlVariableHover,
   setupInputVarTooltips,
-  // Version
+  // Version / updates
   renderSidebarAppVersion,
   getAutoHeaders,
+  checkForAppUpdates,
   // Import/Export/Codegen
   openImport,
   closeImport,
@@ -29948,7 +29985,6 @@ async function init() {
 }
 function setupElectronUpdateListener() {
   if (!window.electronAPI?.onUpdateStatus) return;
-  let _manualUpdateCheck = false;
   window.electronAPI.onUpdateStatus((p) => {
     if (!p?.event) return;
     if (p.event === "available") {

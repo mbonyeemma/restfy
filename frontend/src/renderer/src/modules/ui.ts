@@ -1603,5 +1603,8 @@ export async function renderSidebarAppVersion() {
   if (window.electronAPI?.getAppVersion) {
     try { v = await window.electronAPI.getAppVersion() } catch {}
   }
-  row.innerHTML = `<span style="font-size:11px;color:var(--text-dim)">Restify v${v}</span>`
+  row.innerHTML = `
+    <span class="sidebar-version-text">Restify v${escHtml(v)}</span>
+    <button type="button" class="sidebar-check-update" onclick="checkForAppUpdates()" title="Check for a newer version">Check for updates</button>
+  `
 }

@@ -13,6 +13,7 @@ type TeamRow = {
   name: string;
   slug: string;
   created_by: string;
+  workspace_id: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -45,21 +46,45 @@ function getMemberRole(teamId: string, userId: string): string | null {
   return row?.role ?? null;
 }
 
-function requireRole(
-  ...allowed: string[]
+function getWorkspaceMemberRole(workspaceId: string, userId: string): string | null {
+  const row = db
+    .prepare("SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?")
+    .get(workspaceId, userId) as { role: string } | undefined;
+  return row?.role ?? null;
+}
+
+function requireTeamAccess(
+  ...allowedTeamRoles: string[]
 ): (req: Request, res: Response, next: NextFunction) => void {
   return (req, res, next) => {
     const teamId = req.params.teamId;
-    const role = getMemberRole(teamId, req.userId!);
-    if (!role) {
+    const team = db
+      .prepare("SELECT id, workspace_id FROM teams WHERE id = ?")
+      .get(teamId) as { id: string; workspace_id: string | null } | undefined;
+    if (!team) {
+      res.status(404).json({ error: "Team not found" });
+      return;
+    }
+    if (!team.workspace_id) {
+      res.status(403).json({ error: "Team is not associated with a workspace" });
+      return;
+    }
+    const wsRole = getWorkspaceMemberRole(team.workspace_id, req.userId!);
+    if (!wsRole) {
+      res.status(403).json({ error: "You are not a member of this workspace" });
+      return;
+    }
+    const teamRole = getMemberRole(teamId, req.userId!);
+    if (!teamRole) {
       res.status(403).json({ error: "You are not a member of this team" });
       return;
     }
-    if (!allowed.includes(role)) {
+    if (!allowedTeamRoles.includes(teamRole)) {
       res.status(403).json({ error: "Insufficient permissions" });
       return;
     }
-    (req as any).teamRole = role;
+    (req as any).teamRole = teamRole;
+    (req as any).workspaceRole = wsRole;
     next();
   };
 }
@@ -67,9 +92,31 @@ function requireRole(
 // ── Create team ───────────────────────────────────────────────
 
 router.post("/", (req: Request, res: Response) => {
-  const { name } = req.body as { name?: string };
+  const { name, workspaceId } = req.body as { name?: string; workspaceId?: string };
   if (!name?.trim()) {
     res.status(400).json({ error: "Team name is required" });
+    return;
+  }
+  if (!workspaceId?.trim()) {
+    res.status(400).json({ error: "workspaceId is required" });
+    return;
+  }
+
+  const ws = db
+    .prepare("SELECT id FROM workspaces WHERE id = ?")
+    .get(workspaceId.trim()) as { id: string } | undefined;
+  if (!ws) {
+    res.status(404).json({ error: "Workspace not found" });
+    return;
+  }
+
+  const wsRole = getWorkspaceMemberRole(workspaceId.trim(), req.userId!);
+  if (!wsRole) {
+    res.status(403).json({ error: "You are not a member of this workspace" });
+    return;
+  }
+  if (!["owner", "admin", "member"].includes(wsRole)) {
+    res.status(403).json({ error: "Insufficient permissions to create a team in this workspace" });
     return;
   }
 
@@ -83,12 +130,9 @@ router.post("/", (req: Request, res: Response) => {
     "-" +
     id.slice(0, 4);
 
-  db.prepare("INSERT INTO teams (id, name, slug, created_by) VALUES (?, ?, ?, ?)").run(
-    id,
-    name.trim(),
-    slug,
-    req.userId!
-  );
+  db.prepare(
+    "INSERT INTO teams (id, name, slug, created_by, workspace_id) VALUES (?, ?, ?, ?, ?)"
+  ).run(id, name.trim(), slug, req.userId!, workspaceId.trim());
 
   db.prepare(
     "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'owner')"
@@ -96,7 +140,13 @@ router.post("/", (req: Request, res: Response) => {
 
   db.prepare("INSERT INTO team_global_vars (team_id, data) VALUES (?, '[]')").run(id);
 
-  res.status(201).json({ id, name: name.trim(), slug, role: "owner" });
+  res.status(201).json({
+    id,
+    name: name.trim(),
+    slug,
+    role: "owner",
+    workspace_id: workspaceId.trim(),
+  });
 });
 
 // ── List my teams ─────────────────────────────────────────────
@@ -104,13 +154,19 @@ router.post("/", (req: Request, res: Response) => {
 router.get("/", (req: Request, res: Response) => {
   const rows = db
     .prepare(
-      `SELECT t.id, t.name, t.slug, t.created_at, tm.role,
+      `SELECT t.id, t.name, t.slug, t.workspace_id, t.created_at, tm.role,
+              w.name AS workspace_name,
               (SELECT COUNT(*) FROM team_members WHERE team_id = t.id) AS member_count
        FROM teams t
        JOIN team_members tm ON tm.team_id = t.id AND tm.user_id = ?
-       ORDER BY t.name COLLATE NOCASE`
+       LEFT JOIN workspaces w ON w.id = t.workspace_id
+       ORDER BY w.name COLLATE NOCASE, t.name COLLATE NOCASE`
     )
-    .all(req.userId!) as (TeamRow & { role: string; member_count: number })[];
+    .all(req.userId!) as (TeamRow & {
+      role: string;
+      member_count: number;
+      workspace_name: string | null;
+    })[];
 
   res.json({ teams: rows });
 });
@@ -119,11 +175,15 @@ router.get("/", (req: Request, res: Response) => {
 
 router.get(
   "/:teamId",
-  requireRole("owner", "admin", "member", "viewer"),
+  requireTeamAccess("owner", "admin", "member", "viewer"),
   (req: Request, res: Response) => {
-    const team = db.prepare("SELECT * FROM teams WHERE id = ?").get(req.params.teamId) as
-      | TeamRow
-      | undefined;
+    const team = db
+      .prepare(
+        `SELECT t.*, w.name AS workspace_name FROM teams t
+         LEFT JOIN workspaces w ON w.id = t.workspace_id
+         WHERE t.id = ?`
+      )
+      .get(req.params.teamId) as (TeamRow & { workspace_name: string | null }) | undefined;
     if (!team) {
       res.status(404).json({ error: "Team not found" });
       return;
@@ -159,7 +219,7 @@ router.get(
 
 router.patch(
   "/:teamId",
-  requireRole("owner", "admin"),
+  requireTeamAccess("owner", "admin"),
   (req: Request, res: Response) => {
     const { name } = req.body as { name?: string };
     if (name !== undefined) {
@@ -177,7 +237,7 @@ router.patch(
 
 router.delete(
   "/:teamId",
-  requireRole("owner"),
+  requireTeamAccess("owner"),
   (req: Request, res: Response) => {
     db.prepare("DELETE FROM teams WHERE id = ?").run(req.params.teamId);
     res.json({ ok: true });
@@ -188,7 +248,7 @@ router.delete(
 
 router.post(
   "/:teamId/invite",
-  requireRole("owner", "admin"),
+  requireTeamAccess("owner", "admin"),
   (req: Request, res: Response) => {
     const { email, role } = req.body as { email?: string; role?: string };
     if (!email?.trim()) {
@@ -274,9 +334,26 @@ router.post("/accept-invite", (req: Request, res: Response) => {
     "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, ?)"
   ).run(invite.team_id, req.userId!, invite.role);
 
+  const teamWs = db
+    .prepare("SELECT workspace_id FROM teams WHERE id = ?")
+    .get(invite.team_id) as { workspace_id: string | null } | undefined;
+  if (teamWs?.workspace_id) {
+    const wsRole =
+      invite.role === "admin"
+        ? "admin"
+        : invite.role === "viewer"
+          ? "viewer"
+          : "member";
+    db.prepare(
+      "INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (?, ?, ?, unixepoch())"
+    ).run(teamWs.workspace_id, req.userId!, wsRole);
+  }
+
   db.prepare("UPDATE team_invites SET accepted_at = unixepoch() WHERE id = ?").run(invite.id);
 
-  const team = db.prepare("SELECT id, name, slug FROM teams WHERE id = ?").get(invite.team_id) as TeamRow;
+  const team = db
+    .prepare("SELECT id, name, slug, workspace_id FROM teams WHERE id = ?")
+    .get(invite.team_id) as TeamRow;
   res.json({ ok: true, team: { id: team.id, name: team.name, slug: team.slug }, role: invite.role });
 });
 
@@ -284,7 +361,7 @@ router.post("/accept-invite", (req: Request, res: Response) => {
 
 router.delete(
   "/:teamId/invites/:inviteId",
-  requireRole("owner", "admin"),
+  requireTeamAccess("owner", "admin"),
   (req: Request, res: Response) => {
     db.prepare("DELETE FROM team_invites WHERE id = ? AND team_id = ?").run(
       req.params.inviteId,
@@ -298,7 +375,7 @@ router.delete(
 
 router.patch(
   "/:teamId/members/:userId",
-  requireRole("owner"),
+  requireTeamAccess("owner"),
   (req: Request, res: Response) => {
     const { role } = req.body as { role?: string };
     if (!role || !["admin", "member", "viewer"].includes(role)) {
@@ -331,7 +408,7 @@ router.patch(
 
 router.delete(
   "/:teamId/members/:userId",
-  requireRole("owner", "admin"),
+  requireTeamAccess("owner", "admin"),
   (req: Request, res: Response) => {
     if (req.params.userId === req.userId) {
       res.status(400).json({ error: "Use the leave endpoint instead" });
@@ -360,7 +437,7 @@ router.delete(
 
 router.post(
   "/:teamId/leave",
-  requireRole("admin", "member", "viewer"),
+  requireTeamAccess("admin", "member", "viewer"),
   (req: Request, res: Response) => {
     db.prepare("DELETE FROM team_members WHERE team_id = ? AND user_id = ?").run(
       req.params.teamId,
@@ -374,7 +451,7 @@ router.post(
 
 router.get(
   "/:teamId/collections",
-  requireRole("owner", "admin", "member", "viewer"),
+  requireTeamAccess("owner", "admin", "member", "viewer"),
   (req: Request, res: Response) => {
     const rows = db
       .prepare(
@@ -393,7 +470,7 @@ router.get(
 
 router.post(
   "/:teamId/collections",
-  requireRole("owner", "admin", "member"),
+  requireTeamAccess("owner", "admin", "member"),
   (req: Request, res: Response) => {
     const { collection } = req.body as { collection?: Record<string, unknown> & { id?: string } };
     if (!collection) {
@@ -411,7 +488,7 @@ router.post(
 
 router.put(
   "/:teamId/collections/:id",
-  requireRole("owner", "admin", "member"),
+  requireTeamAccess("owner", "admin", "member"),
   (req: Request, res: Response) => {
     const { collection } = req.body as { collection?: Record<string, unknown> };
     if (!collection) {
@@ -434,7 +511,7 @@ router.put(
 
 router.delete(
   "/:teamId/collections/:id",
-  requireRole("owner", "admin"),
+  requireTeamAccess("owner", "admin"),
   (req: Request, res: Response) => {
     const result = db
       .prepare("DELETE FROM team_collections WHERE id = ? AND team_id = ?")
@@ -449,7 +526,7 @@ router.delete(
 
 router.post(
   "/:teamId/collections/sync",
-  requireRole("owner", "admin", "member"),
+  requireTeamAccess("owner", "admin", "member"),
   (req: Request, res: Response) => {
     const { collections } = req.body as {
       collections?: Array<Record<string, unknown> & { id: string; _localUpdatedAt?: number }>;
@@ -505,7 +582,7 @@ router.post(
 
 router.get(
   "/:teamId/environments",
-  requireRole("owner", "admin", "member", "viewer"),
+  requireTeamAccess("owner", "admin", "member", "viewer"),
   (req: Request, res: Response) => {
     const rows = db
       .prepare("SELECT id, data, updated_at FROM team_environments WHERE team_id = ? ORDER BY created_at ASC")
@@ -527,7 +604,7 @@ router.get(
 
 router.post(
   "/:teamId/environments/sync",
-  requireRole("owner", "admin", "member"),
+  requireTeamAccess("owner", "admin", "member"),
   (req: Request, res: Response) => {
     const { environments, globalVars } = req.body as {
       environments?: Array<Record<string, unknown> & { id?: string }>;

@@ -26,6 +26,17 @@ export function verifyToken(token: string): jwt.JwtPayload {
   return jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
 }
 
+function _seedMyWorkspace(db: import("better-sqlite3").Database, userId: string): void {
+  const wsId = uuid();
+  const slug = `my-workspace-${wsId.slice(0, 6)}`;
+  db.prepare(
+    "INSERT INTO workspaces (id, name, slug, created_by) VALUES (?, ?, ?, ?)"
+  ).run(wsId, "My Workspace", slug, userId);
+  db.prepare(
+    "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, 'owner')"
+  ).run(wsId, userId);
+}
+
 export function register(
   email: string,
   password: string,
@@ -47,6 +58,8 @@ export function register(
   );
 
   db.prepare("INSERT INTO global_vars (user_id, data) VALUES (?, ?)").run(id, "[]");
+
+  _seedMyWorkspace(db, id);
 
   const token = generateToken(id);
   return { user: { id, email: normalized, name: name || "" }, token };

@@ -4,11 +4,21 @@ config({ quiet: true });
 
 export const PORT = Number(process.env.PORT) || 4000;
 
+/** Marketing / root site (download links, “home”) */
+export const PUBLIC_WEBSITE_ORIGIN =
+  process.env.RESTIFY_PUBLIC_WEBSITE_ORIGIN?.trim() || "https://restify.online";
+
 /** Production split: static / Electron web UI (docs + import links) */
-export const PUBLIC_APP_ORIGIN = "https://app.restify.online";
+export const PUBLIC_APP_ORIGIN =
+  process.env.RESTIFY_PUBLIC_APP_ORIGIN?.trim() || "https://app.restify.online";
+
+/** “Get it” / download anchor (browser + macOS instructions on the promo site) */
+export const PUBLIC_DOWNLOAD_URL =
+  process.env.RESTIFY_PUBLIC_DOWNLOAD_URL?.trim() || `${PUBLIC_WEBSITE_ORIGIN.replace(/\/$/, "")}/#get`;
 
 /** Production split: API (share payloads, CORS target) */
-export const PUBLIC_API_ORIGIN = "https://api.restify.online";
+export const PUBLIC_API_ORIGIN =
+  process.env.RESTIFY_PUBLIC_API_ORIGIN?.trim() || "https://api.restify.online";
 
 /** Request Host header (no port) when API is served at api.restify.online */
 export const PUBLIC_API_HOST = "api.restify.online";

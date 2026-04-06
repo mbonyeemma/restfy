@@ -713,6 +713,14 @@
   .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 
   /* ── Cloud sync ── */
+  .sidebar-cloud-btn {
+    width: 100%; margin-top: 8px; padding: 8px 10px; font-size: 12px; font-weight: 500;
+    background: var(--bg-mid); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-secondary); cursor: pointer; font-family: 'Inter', sans-serif;
+    transition: border-color .12s, color .12s;
+  }
+  .sidebar-cloud-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .sidebar-cloud-btn--in { border-color: var(--accent-glow); color: var(--accent); }
   .cloud-status-area { display: flex; align-items: center; -webkit-app-region: no-drag; margin-left: 4px; }
   .cloud-login-btn { padding: 4px 10px; font-size: 11px; background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; transition: background .12s; }
   .cloud-login-btn:hover { background: var(--accent-hover); }
@@ -728,6 +736,37 @@
   .cloud-tab-btn:hover { color: var(--text-primary); }
   .cloud-tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); }
   .cloud-form .form-group { margin-bottom: 12px; }
+
+  /* ── Teams ── */
+  .teams-list { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .teams-list-header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 12px; }
+  .teams-list-header h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .team-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all .12s; }
+  .team-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .team-card-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+  .team-card-info { flex: 1; min-width: 0; }
+  .team-card-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .team-card-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .team-card-role { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--bg-light); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 500; text-transform: capitalize; flex-shrink: 0; }
+  .team-detail { padding: 16px; }
+  .team-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .team-detail-back { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all .12s; flex-shrink: 0; }
+  .team-detail-back:hover { border-color: var(--accent); color: var(--accent); }
+  .team-detail-name { font-size: 18px; font-weight: 700; flex: 1; }
+  .team-section { margin-bottom: 20px; }
+  .team-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .team-member-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; transition: background .1s; }
+  .team-member-row:hover { background: var(--bg-mid); }
+  .team-member-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-lighter); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; flex-shrink: 0; }
+  .team-member-info { flex: 1; min-width: 0; }
+  .team-member-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .team-member-email { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .team-member-role { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--bg-light); border: 1px solid var(--border); color: var(--text-secondary); text-transform: capitalize; }
+  .team-member-role.owner { color: var(--accent); border-color: var(--accent); }
+  .team-invite-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 12px; color: var(--text-dim); }
+  .team-invite-email { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .team-workspace-btn { width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .12s; margin-bottom: 12px; }
+  .team-workspace-btn:hover { background: var(--accent-hover); }
 
   /* ── In-app dialog (replaces prompt/confirm) ── */
   .app-dialog-overlay { position: fixed; inset: 0; background: var(--modal-overlay); display: none; align-items: center; justify-content: center; z-index: 4000; }
@@ -860,6 +899,7 @@
     <div class="sidebar-content" id="sidebarContent"></div>
     <div class="sidebar-footer">
       <button class="new-collection-btn" onclick="createNewCollection()">+ New Collection</button>
+      <div id="sidebarCloudLink" class="sidebar-cloud-link" aria-live="polite"></div>
       <div class="sidebar-version-row" id="sidebarVersionRow" aria-live="polite"></div>
     </div>
   </div>
@@ -1344,6 +1384,17 @@
       <button class="modal-close" onclick="closeCloudModal()">&#10005;</button>
     </div>
     <div class="modal-body" id="cloudModalBody"></div>
+  </div>
+</div>
+
+<!-- TEAMS MODAL -->
+<div class="modal-overlay" id="teamsModal" role="dialog" aria-modal="true">
+  <div class="modal wide" style="max-height:85vh">
+    <div class="modal-header">
+      <span class="modal-title" id="teamsModalTitle">Teams</span>
+      <button class="modal-close" onclick="closeTeamsModal()">&#10005;</button>
+    </div>
+    <div class="modal-body" id="teamsModalBody" style="padding:0"></div>
   </div>
 </div>
 

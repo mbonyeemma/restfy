@@ -1,4 +1,4 @@
-// Docs viewer entry point
+// Enhanced API docs viewer — search, multi-lang code, try-it, scroll-tracking
 
 ;(function initConfigDomains() {
   if (typeof window === 'undefined' || !window.location) return
@@ -26,7 +26,7 @@
   window.restifyFetch = (url: string, opts?: RequestInit) => fetch(url, opts)
 })()
 
-// ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
 function esc(s: any): string {
   return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : ''
@@ -55,6 +55,13 @@ const METHOD_BG: Record<string, string> = {
 function methodStyle(m: string): string {
   return `color:${METHOD_COLOR[m] || 'var(--text-dim)'};background:${METHOD_BG[m] || 'var(--bg-hover)'}`
 }
+
+// ── Data ──────────────────────────────────────────────────────
+
+let _allEndpoints: HTMLElement[] = []
+let _sidebarItems: HTMLElement[] = []
+
+// ── Load ──────────────────────────────────────────────────────
 
 async function loadDocs(): Promise<void> {
   const id = getCollectionId()
@@ -93,6 +100,8 @@ function allRequests(node: any, acc: any[] = []): any[] {
   return acc
 }
 
+// ── Render ────────────────────────────────────────────────────
+
 function render(data: any): void {
   const col = data.collection
   const total = countAll(col)
@@ -109,7 +118,10 @@ function render(data: any): void {
   if (sidebarCount) sidebarCount.textContent = total + ' endpoint' + (total !== 1 ? 's' : '')
   buildSidebar(col)
   buildContent(col, data)
+  setupScrollTracking()
 }
+
+// ── Sidebar ───────────────────────────────────────────────────
 
 function buildSidebar(col: any): void {
   const nav = document.getElementById('sidebarNav')
@@ -118,17 +130,18 @@ function buildSidebar(col: any): void {
   function walk(children: any[], depth: number) {
     ;(children || []).forEach(child => {
       if (child.type === 'folder') {
-        const fid = 'sf-' + child.id
+        const count = countAll(child)
         html += `<div class="sidebar-folder" onclick="toggleFolder('${esc(child.id)}')" id="sfh-${esc(child.id)}">
           <span class="sidebar-folder-arrow open" id="sfa-${esc(child.id)}">▶</span>
           <span>📁 ${esc(child.name)}</span>
+          <span class="sidebar-folder-count">${count}</span>
         </div>
-        <div id="${fid}">`
+        <div id="sf-${esc(child.id)}">`
         walk(child.children, depth + 1)
         html += '</div>'
       } else if (child.type === 'request') {
         const cls = depth === 0 ? 'sidebar-item root-level' : 'sidebar-item'
-        html += `<div class="${cls}" data-id="${child.id}" onclick="scrollToEndpoint('${child.id}')">
+        html += `<div class="${cls}" data-id="${child.id}" data-name="${esc((child.name || '').toLowerCase())}" data-method="${esc(child.method || 'GET')}" onclick="scrollToEndpoint('${child.id}')">
           <span class="m-badge m-${esc(child.method || 'GET')}">${esc(child.method || 'GET')}</span>
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(child.name)}</span>
         </div>`
@@ -137,6 +150,7 @@ function buildSidebar(col: any): void {
   }
   walk(col.children || [], 0)
   nav.innerHTML = html
+  _sidebarItems = Array.from(nav.querySelectorAll('.sidebar-item'))
 }
 
 ;(window as any).toggleFolder = function (fid: string) {
@@ -152,11 +166,64 @@ function buildSidebar(col: any): void {
   const el = document.getElementById('ep-' + id)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'))
-    const sideItem = document.querySelector<HTMLElement>(`.sidebar-item[data-id="${id}"]`)
-    if (sideItem) sideItem.classList.add('active')
+    _setActiveEndpoint(id)
   }
 }
+
+function _setActiveEndpoint(id: string) {
+  _sidebarItems.forEach(s => s.classList.remove('active'))
+  const sideItem = document.querySelector<HTMLElement>(`.sidebar-item[data-id="${id}"]`)
+  if (sideItem) {
+    sideItem.classList.add('active')
+    sideItem.scrollIntoView({ block: 'nearest' })
+  }
+}
+
+// ── Search ────────────────────────────────────────────────────
+
+;(window as any).filterEndpoints = function (query: string) {
+  const q = query.trim().toLowerCase()
+  _sidebarItems.forEach(item => {
+    const name = item.getAttribute('data-name') || ''
+    const method = (item.getAttribute('data-method') || '').toLowerCase()
+    const match = !q || name.includes(q) || method.includes(q)
+    ;(item as HTMLElement).style.display = match ? '' : 'none'
+  })
+  _allEndpoints.forEach(ep => {
+    const id = ep.id.replace('ep-', '')
+    const sideItem = document.querySelector<HTMLElement>(`.sidebar-item[data-id="${id}"]`)
+    if (sideItem) {
+      ep.style.display = sideItem.style.display
+    }
+  })
+}
+
+// ── Scroll Tracking ───────────────────────────────────────────
+
+function setupScrollTracking(): void {
+  const content = document.getElementById('docsContent')
+  if (!content) return
+  _allEndpoints = Array.from(content.querySelectorAll('.endpoint'))
+
+  let ticking = false
+  content.addEventListener('scroll', () => {
+    if (ticking) return
+    ticking = true
+    requestAnimationFrame(() => {
+      ticking = false
+      const scrollTop = content.scrollTop + 120
+      let activeId = ''
+      for (const ep of _allEndpoints) {
+        if (ep.offsetTop <= scrollTop) {
+          activeId = ep.id.replace('ep-', '')
+        }
+      }
+      if (activeId) _setActiveEndpoint(activeId)
+    })
+  })
+}
+
+// ── Build Content ─────────────────────────────────────────────
 
 function buildContent(col: any, meta: any): void {
   const container = document.getElementById('docsContent')
@@ -167,15 +234,15 @@ function buildContent(col: any, meta: any): void {
   const desc = col.description || ''
   const published = new Date(meta.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 
-  html += `<div class="collection-intro">
+  html += `<div class="collection-hero">
     <div class="collection-name">${esc(col.name)}</div>
     ${desc ? `<div class="collection-desc">${esc(desc)}</div>` : ''}
-    <div class="collection-meta">
-      <div class="meta-pill"><strong>${reqs.length}</strong> endpoint${reqs.length !== 1 ? 's' : ''}</div>
-      ${folderCount ? `<div class="meta-pill"><strong>${folderCount}</strong> folder${folderCount !== 1 ? 's' : ''}</div>` : ''}
-      ${meta.views ? `<div class="meta-pill"><strong>${meta.views}</strong> view${meta.views !== 1 ? 's' : ''}</div>` : ''}
-      <div class="meta-pill">Published ${esc(published)}</div>
-      ${meta.owner?.name ? `<div class="meta-pill">By <strong>${esc(meta.owner.name)}</strong></div>` : ''}
+    <div class="collection-stats">
+      <div class="stat-chip"><strong>${reqs.length}</strong> endpoint${reqs.length !== 1 ? 's' : ''}</div>
+      ${folderCount ? `<div class="stat-chip"><strong>${folderCount}</strong> folder${folderCount !== 1 ? 's' : ''}</div>` : ''}
+      ${meta.views ? `<div class="stat-chip"><strong>${meta.views}</strong> view${meta.views !== 1 ? 's' : ''}</div>` : ''}
+      <div class="stat-chip">Published ${esc(published)}</div>
+      ${meta.owner?.name ? `<div class="stat-chip">By <strong>${esc(meta.owner.name)}</strong></div>` : ''}
     </div>
   </div>`
 
@@ -209,6 +276,8 @@ function buildContent(col: any, meta: any): void {
   container.innerHTML = html
 }
 
+// ── Endpoint Card ─────────────────────────────────────────────
+
 function renderEndpoint(req: any): string {
   const m = req.method || 'GET'
   const mstyle = methodStyle(m)
@@ -216,9 +285,11 @@ function renderEndpoint(req: any): string {
   const headers = (req.headers || []).filter((h: any) => h.key && h.enabled !== false)
   const hasBody = req.bodyType && req.bodyType !== 'none'
   const hasAuth = req.auth?.type && req.auth.type !== 'none' && req.auth.type !== 'inherit'
+  const epId = req.id
 
+  // Left side
   let left = `<div class="ep-headline"><span class="ep-method" style="${mstyle}">${esc(m)}</span><span class="ep-name">${esc(req.name)}</span></div>`
-  if (req.description) left += `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.7;white-space:pre-wrap">${esc(req.description)}</div>`
+  if (req.description) left += `<div class="ep-desc">${esc(req.description)}</div>`
   if (req.url) left += `<div class="ep-url"><span>${esc(req.url)}</span><button class="copy-btn" onclick="copyInline(this,'${esc(req.url)}')">Copy</button></div>`
   if (hasAuth) left += `<div class="section-label">Authorization</div>${renderAuth(req.auth)}`
   if (params.length) {
@@ -236,7 +307,7 @@ function renderEndpoint(req: any): string {
     if (req.bodyType === 'json' || req.bodyType === 'raw' || req.bodyType === 'graphql') {
       let display = req.body || ''
       if (req.bodyType === 'json') { try { display = JSON.stringify(JSON.parse(display), null, 2) } catch {} }
-      left += `<div class="curl-block"><pre>${esc(display)}</pre><div class="curl-copy"><button class="copy-btn" onclick="copyInline(this,\`${display.replace(/`/g, '\\`')}\`)">Copy</button></div></div>`
+      left += `<div class="code-block"><pre>${esc(display)}</pre></div>`
     } else if (req.bodyType === 'form' || req.bodyType === 'urlencoded') {
       const fields = (req.bodyForm || []).filter((f: any) => f.key)
       if (fields.length) {
@@ -247,11 +318,194 @@ function renderEndpoint(req: any): string {
     }
   }
 
-  const curl = buildCurl(req)
-  const right = `<div class="curl-label"><span>Example Request</span></div><div class="curl-block"><pre>${esc(curl)}</pre><div class="curl-copy"><button class="copy-btn" onclick="copyInline(this,\`${curl.replace(/`/g, '\\`')}\`)">Copy</button></div></div>`
+  // Right side — code samples
+  const langs = ['curl', 'javascript', 'python', 'php', 'go']
+  const codeSamples: Record<string, string> = {}
+  for (const lang of langs) codeSamples[lang] = buildCodeSample(req, lang)
 
-  return `<div class="endpoint" id="ep-${esc(req.id)}"><div class="endpoint-row"><div class="ep-left">${left}</div><div class="ep-right">${right}</div></div></div>`
+  let right = `<div class="code-tabs" id="ct-${esc(epId)}">`
+  langs.forEach((lang, i) => {
+    right += `<button class="code-tab${i === 0 ? ' active' : ''}" data-lang="${lang}" onclick="switchCodeTab('${esc(epId)}','${lang}')">${langLabel(lang)}</button>`
+  })
+  right += `</div>`
+
+  langs.forEach((lang, i) => {
+    right += `<div class="code-block" id="cb-${esc(epId)}-${lang}" style="${i > 0 ? 'display:none' : ''}">
+      <div class="code-block-header"><span>${langLabel(lang)}</span><button class="copy-btn" onclick="copyBlock('cb-${esc(epId)}-${lang}')">Copy</button></div>
+      <pre>${esc(codeSamples[lang])}</pre>
+    </div>`
+  })
+
+  // Try It section
+  right += `<div class="try-it" id="tryit-${esc(epId)}">
+    <div class="try-it-header">
+      <span class="try-it-label">Try It</span>
+      <button class="try-it-btn" id="tryit-btn-${esc(epId)}" onclick="sendTryIt('${esc(epId)}','${esc(m)}','${esc(req.url || '')}')">Send Request</button>
+    </div>
+    <div class="try-it-body">
+      <input class="try-it-input" id="tryit-url-${esc(epId)}" value="${esc(req.url || '')}" placeholder="Request URL">
+      ${hasBody && (req.bodyType === 'json' || req.bodyType === 'raw') ? `<textarea class="try-it-textarea" id="tryit-body-${esc(epId)}" placeholder="Request body">${esc(req.body || '')}</textarea>` : ''}
+      <div id="tryit-result-${esc(epId)}"></div>
+    </div>
+  </div>`
+
+  return `<div class="endpoint" id="ep-${esc(epId)}"><div class="endpoint-row"><div class="ep-left">${left}</div><div class="ep-right">${right}</div></div></div>`
 }
+
+// ── Code Samples ──────────────────────────────────────────────
+
+function langLabel(lang: string): string {
+  const labels: Record<string, string> = { curl: 'cURL', javascript: 'JavaScript', python: 'Python', php: 'PHP', go: 'Go' }
+  return labels[lang] || lang
+}
+
+function buildCodeSample(req: any, lang: string): string {
+  const m = req.method || 'GET'
+  let url = req.url || ''
+  if (!url.startsWith('http')) url = 'https://' + url
+  const params = (req.params || []).filter((p: any) => p.enabled !== false && p.key)
+  if (params.length) {
+    const qs = params.map((p: any) => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&')
+    url += (url.includes('?') ? '&' : '?') + qs
+  }
+  const hdrs = (req.headers || []).filter((h: any) => h.enabled !== false && h.key)
+  if (req.bodyType === 'json' && !hdrs.find((h: any) => h.key.toLowerCase() === 'content-type')) hdrs.push({ key: 'Content-Type', value: 'application/json' })
+  if (req.auth?.type === 'bearer' && req.auth.token) hdrs.push({ key: 'Authorization', value: 'Bearer ' + req.auth.token })
+
+  const body = (m !== 'GET' && m !== 'HEAD' && (req.bodyType === 'json' || req.bodyType === 'raw') && req.body) ? req.body : ''
+
+  switch (lang) {
+    case 'curl': {
+      const parts = [`curl -X ${m}`, `  '${url}'`]
+      hdrs.forEach((h: any) => { parts.push(`  -H '${h.key}: ${h.value}'`) })
+      if (body) parts.push(`  -d '${body.replace(/'/g, "'\\''")}'`)
+      return parts.join(' \\\n')
+    }
+    case 'javascript': {
+      let s = ''
+      if (!body && !hdrs.length) {
+        s = `const response = await fetch('${url}'${m !== 'GET' ? `, {\n  method: '${m}'\n}` : ''});\nconst data = await response.json();\nconsole.log(data);`
+      } else {
+        s = `const response = await fetch('${url}', {\n  method: '${m}',`
+        if (hdrs.length) {
+          s += `\n  headers: {`
+          hdrs.forEach((h: any) => { s += `\n    '${h.key}': '${h.value}',` })
+          s += `\n  },`
+        }
+        if (body) s += `\n  body: JSON.stringify(${body}),`
+        s += `\n});\nconst data = await response.json();\nconsole.log(data);`
+      }
+      return s
+    }
+    case 'python': {
+      let s = `import requests\n\n`
+      if (hdrs.length) {
+        s += `headers = {\n`
+        hdrs.forEach((h: any) => { s += `    '${h.key}': '${h.value}',\n` })
+        s += `}\n\n`
+      }
+      if (body) {
+        s += `payload = ${body}\n\n`
+      }
+      s += `response = requests.${m.toLowerCase()}(\n    '${url}'`
+      if (hdrs.length) s += `,\n    headers=headers`
+      if (body) s += `,\n    json=payload`
+      s += `\n)\n\nprint(response.json())`
+      return s
+    }
+    case 'php': {
+      let s = `<?php\n$ch = curl_init();\n\ncurl_setopt_array($ch, [\n    CURLOPT_URL => '${url}',\n    CURLOPT_RETURNTRANSFER => true,\n    CURLOPT_CUSTOMREQUEST => '${m}',`
+      if (hdrs.length) {
+        s += `\n    CURLOPT_HTTPHEADER => [`
+        hdrs.forEach((h: any) => { s += `\n        '${h.key}: ${h.value}',` })
+        s += `\n    ],`
+      }
+      if (body) s += `\n    CURLOPT_POSTFIELDS => '${body.replace(/'/g, "\\'")}',`
+      s += `\n]);\n\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`
+      return s
+    }
+    case 'go': {
+      let s = `package main\n\nimport (\n\t"fmt"\n\t"io"\n\t"net/http"\n`
+      if (body) s += `\t"strings"\n`
+      s += `)\n\nfunc main() {\n`
+      if (body) {
+        s += `\tbody := strings.NewReader(\`${body}\`)\n`
+        s += `\treq, _ := http.NewRequest("${m}", "${url}", body)\n`
+      } else {
+        s += `\treq, _ := http.NewRequest("${m}", "${url}", nil)\n`
+      }
+      hdrs.forEach((h: any) => { s += `\treq.Header.Set("${h.key}", "${h.value}")\n` })
+      s += `\n\tresp, _ := http.DefaultClient.Do(req)\n\tdefer resp.Body.Close()\n\n\tdata, _ := io.ReadAll(resp.Body)\n\tfmt.Println(string(data))\n}`
+      return s
+    }
+    default:
+      return ''
+  }
+}
+
+// ── Code Tab Switching ────────────────────────────────────────
+
+;(window as any).switchCodeTab = function (epId: string, lang: string) {
+  const tabs = document.getElementById('ct-' + epId)
+  if (!tabs) return
+  tabs.querySelectorAll('.code-tab').forEach(btn => {
+    btn.classList.toggle('active', (btn as HTMLElement).getAttribute('data-lang') === lang)
+  })
+  const allLangs = ['curl', 'javascript', 'python', 'php', 'go']
+  allLangs.forEach(l => {
+    const block = document.getElementById(`cb-${epId}-${l}`)
+    if (block) block.style.display = l === lang ? '' : 'none'
+  })
+}
+
+// ── Try It ────────────────────────────────────────────────────
+
+;(window as any).sendTryIt = async function (epId: string, method: string, _origUrl: string) {
+  const urlInput = document.getElementById(`tryit-url-${epId}`) as HTMLInputElement
+  const bodyInput = document.getElementById(`tryit-body-${epId}`) as HTMLTextAreaElement | null
+  const resultDiv = document.getElementById(`tryit-result-${epId}`)
+  const btn = document.getElementById(`tryit-btn-${epId}`) as HTMLButtonElement
+  if (!urlInput || !resultDiv) return
+
+  let url = urlInput.value.trim()
+  if (!url) return
+  if (!url.startsWith('http')) url = 'https://' + url
+
+  btn.disabled = true
+  btn.textContent = 'Sending…'
+  resultDiv.innerHTML = ''
+
+  const start = performance.now()
+  try {
+    const opts: RequestInit = { method, mode: 'cors' }
+    if (bodyInput?.value && method !== 'GET' && method !== 'HEAD') {
+      opts.body = bodyInput.value
+      opts.headers = { 'Content-Type': 'application/json' }
+    }
+    const resp = await fetch(url, opts)
+    const elapsed = Math.round(performance.now() - start)
+    const text = await resp.text()
+    let display = text
+    try { display = JSON.stringify(JSON.parse(text), null, 2) } catch {}
+
+    const statusClass = resp.status < 300 ? 's2xx' : resp.status < 500 ? 's4xx' : 's5xx'
+    resultDiv.innerHTML = `<div class="try-it-response">
+      <div class="try-it-resp-header">
+        <span class="try-it-resp-status ${statusClass}">${resp.status} ${resp.statusText}</span>
+        <span class="try-it-resp-time">${elapsed}ms</span>
+        <button class="copy-btn" style="margin-left:auto" onclick="copyInline(this,document.getElementById('tryit-resp-body-${esc(epId)}').textContent)">Copy</button>
+      </div>
+      <div class="try-it-resp-body" id="tryit-resp-body-${esc(epId)}">${esc(display)}</div>
+    </div>`
+  } catch (err: any) {
+    resultDiv.innerHTML = `<div style="color:var(--red);font-size:12px;padding:8px">Error: ${esc(err.message)}</div>`
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Send Request'
+  }
+}
+
+// ── Auth ──────────────────────────────────────────────────────
 
 function renderAuth(auth: any): string {
   if (!auth?.type || auth.type === 'none') return ''
@@ -262,25 +516,7 @@ function renderAuth(auth: any): string {
   return `<div class="auth-badge">🔒 <strong>${esc(auth.type)}</strong></div>`
 }
 
-function buildCurl(req: any): string {
-  let url = req.url || ''
-  if (!url.startsWith('http')) url = 'https://' + url
-  const params = (req.params || []).filter((p: any) => p.enabled !== false && p.key)
-  if (params.length) {
-    const qs = params.map((p: any) => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&')
-    url += (url.includes('?') ? '&' : '?') + qs
-  }
-  const m = req.method || 'GET'
-  const parts = [`curl -X ${m}`, `  '${url}'`]
-  const hdrs = (req.headers || []).filter((h: any) => h.enabled !== false && h.key)
-  if (req.bodyType === 'json' && !hdrs.find((h: any) => h.key.toLowerCase() === 'content-type')) hdrs.push({ key: 'Content-Type', value: 'application/json' })
-  if (req.auth?.type === 'bearer' && req.auth.token) hdrs.push({ key: 'Authorization', value: 'Bearer ' + req.auth.token })
-  hdrs.forEach((h: any) => { parts.push(`  -H '${h.key}: ${h.value}'`) })
-  if (m !== 'GET' && m !== 'HEAD' && (req.bodyType === 'json' || req.bodyType === 'raw') && req.body) {
-    parts.push(`  -d '${req.body.replace(/'/g, "'\\''")}'`)
-  }
-  return parts.join(' \\\n')
-}
+// ── Copy ──────────────────────────────────────────────────────
 
 ;(window as any).copyInline = function (btn: HTMLButtonElement, text: string) {
   navigator.clipboard.writeText(String(text)).then(() => {
@@ -289,6 +525,23 @@ function buildCurl(req: any): string {
     setTimeout(() => { btn.textContent = orig }, 1500)
   }).catch(() => {})
 }
+
+;(window as any).copyBlock = function (blockId: string) {
+  const block = document.getElementById(blockId)
+  if (!block) return
+  const pre = block.querySelector('pre')
+  if (!pre) return
+  const btn = block.querySelector('.copy-btn') as HTMLButtonElement
+  navigator.clipboard.writeText(pre.textContent || '').then(() => {
+    if (btn) {
+      const orig = btn.textContent
+      btn.textContent = 'Copied!'
+      setTimeout(() => { btn.textContent = orig }, 1500)
+    }
+  }).catch(() => {})
+}
+
+// ── Theme ─────────────────────────────────────────────────────
 
 ;(window as any).toggleTheme = function () {
   const html = document.documentElement
@@ -299,7 +552,6 @@ function buildCurl(req: any): string {
   if (themeBtn) themeBtn.textContent = next === 'dark' ? '☾' : '☀'
 }
 
-// Init theme
 ;(function initTheme() {
   const saved = localStorage.getItem('restify_docs_theme') || localStorage.getItem('restfy_docs_theme') || 'dark'
   document.documentElement.setAttribute('data-theme', saved)

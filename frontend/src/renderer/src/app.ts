@@ -29,9 +29,15 @@ import {
 import { shareCollection, closeShareModal, copyShareUrl, checkAutoImport } from './modules/share'
 import {
   cloudSync, renderCloudStatus, openCloudModal, closeCloudModal,
-  _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout
+  _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
+  cloudForgotPassword, maybeOpenPasswordResetFromUrl
 } from './modules/cloud'
 import { sendRequest, cancelRequest } from './modules/http'
+import {
+  openTeamsModal, closeTeamsModal, createTeam, openTeamDetail,
+  inviteToTeam, removeMember, changeMemberRole, leaveTeam,
+  deleteTeam, cancelInvite, syncTeamWorkspace, maybeAcceptTeamInvite
+} from './modules/teams'
 
 // ── Bootstrap ─────────────────────────────────────────────────────
 
@@ -83,6 +89,11 @@ Object.assign(window, {
   // Cloud
   cloudSync, renderCloudStatus, openCloudModal, closeCloudModal,
   _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
+  cloudForgotPassword,
+  // Teams
+  openTeamsModal, closeTeamsModal, createTeam, openTeamDetail,
+  inviteToTeam, removeMember, changeMemberRole, leaveTeam,
+  deleteTeam, cancelInvite, syncTeamWorkspace,
   // HTTP
   sendRequest, cancelRequest,
   // Utils (used in inline HTML)
@@ -95,6 +106,8 @@ Object.assign(window, {
 
 async function init() {
   loadTheme()
+  await maybeOpenPasswordResetFromUrl()
+  await maybeAcceptTeamInvite()
   await loadState()
 
   if (state.tabs.length === 0) {

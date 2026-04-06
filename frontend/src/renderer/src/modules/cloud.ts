@@ -1,5 +1,5 @@
 import { state, saveState } from './state'
-import { escHtml, showNotif } from './utils'
+import { escHtml, showNotif, appPrompt } from './utils'
 
 const CLOUD_DEFAULT = 'https://api.restify.online'
 const LS_CLOUD_SESSION = 'restify_cloud_session'
@@ -10,8 +10,12 @@ const LS_CLOUD_URL_LEGACY = 'restfy_cloud_url'
 function cloudBase(): string {
   const u = localStorage.getItem(LS_CLOUD_URL) || localStorage.getItem(LS_CLOUD_URL_LEGACY)
   const t = u && String(u).trim()
-  const raw = t || CLOUD_DEFAULT
-  return String(raw).replace(/\/+$/, '')
+  if (t) return String(t).replace(/\/+$/, '')
+  if (typeof window !== 'undefined') {
+    const w = window.__RESTIFY_API_BASE__ ?? window.__RESTFY_API_BASE__
+    if (w != null && String(w).trim() !== '') return String(w).trim().replace(/\/+$/, '')
+  }
+  return String(CLOUD_DEFAULT).replace(/\/+$/, '')
 }
 
 function cloudApiUrl(path: string): string {
@@ -168,7 +172,6 @@ export async function cloudSync(): Promise<void> {
     _lastSyncAt = colData.syncedAt || Math.floor(Date.now() / 1000)
     _saveCloudSession()
     saveState()
-    // renderSidebar and renderEnvSelector are called via window globals (ui.ts)
     if (typeof (window as any).renderSidebar === 'function') (window as any).renderSidebar()
     if (typeof (window as any).renderEnvSelector === 'function') (window as any).renderEnvSelector()
     showNotif('Synced with cloud', 'success')
@@ -180,30 +183,103 @@ export async function cloudSync(): Promise<void> {
   }
 }
 
-export function renderCloudStatus(): void {
-  const el = document.getElementById('cloudStatusArea')
-  if (!el) return
-
+function _renderSidebarCloudLink(): void {
+  const side = document.getElementById('sidebarCloudLink')
+  if (!side) return
   if (!_cloudToken) {
-    el.innerHTML = '<button class="cloud-login-btn" onclick="openCloudModal()">Sign in</button>'
+    side.innerHTML =
+      '<button type="button" class="sidebar-cloud-btn" onclick="openCloudModal()" title="Restify Cloud">☁ Cloud · Sign in</button>'
     return
   }
+  const initial = (_cloudUser?.name || _cloudUser?.email || '?').charAt(0).toUpperCase()
+  side.innerHTML = `<button type="button" class="sidebar-cloud-btn sidebar-cloud-btn--in" onclick="openCloudModal()" title="${escHtml(_cloudUser?.email || '')}">☁ ${initial}</button>`
+}
 
-  const initial = (_cloudUser.name || _cloudUser.email || '?').charAt(0).toUpperCase()
-  el.innerHTML = `
+export async function cloudForgotPassword(): Promise<void> {
+  const email = await appPrompt(
+    'Forgot password',
+    'If this email is registered, we will send you a reset link.',
+    { placeholder: 'you@example.com', okLabel: 'Send link' }
+  )
+  if (!email?.trim()) return
+  try {
+    const resp = await fetch(cloudApiUrl('/api/auth/forgot-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    })
+    const data = (await resp.json()) as { message?: string }
+    showNotif(data.message || 'Check your email inbox.', 'success')
+  } catch {
+    showNotif('Could not send request. Try again later.', 'error')
+  }
+}
+
+/** Handle `?resetPassword=token` from email link (strip query, prompt for new password). */
+export async function maybeOpenPasswordResetFromUrl(): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    const u = new URL(window.location.href)
+    const t = u.searchParams.get('resetPassword')
+    if (!t) return
+    u.searchParams.delete('resetPassword')
+    window.history.replaceState({}, '', u.pathname + u.search + u.hash)
+    const p1 = await appPrompt('New password', 'Choose a password (at least 6 characters).', {
+      inputType: 'password',
+      okLabel: 'Continue',
+    })
+    if (!p1 || p1.length < 6) {
+      showNotif('Password must be at least 6 characters', 'error')
+      return
+    }
+    const p2 = await appPrompt('Confirm password', 'Enter the same password again.', {
+      inputType: 'password',
+      okLabel: 'Reset password',
+    })
+    if (!p2) return
+    if (p1 !== p2) {
+      showNotif('Passwords do not match', 'error')
+      return
+    }
+    const resp = await fetch(cloudApiUrl('/api/auth/reset-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, newPassword: p1 }),
+    })
+    const data = (await resp.json().catch(() => ({}))) as { error?: string }
+    if (!resp.ok) {
+      showNotif(data.error || 'Reset failed', 'error')
+      return
+    }
+    showNotif('Password updated — you can sign in.', 'success')
+    openCloudModal()
+  } catch {
+    showNotif('Reset failed', 'error')
+  }
+}
+
+export function renderCloudStatus(): void {
+  const el = document.getElementById('cloudStatusArea')
+  if (el) {
+    if (!_cloudToken) {
+      el.innerHTML =
+        '<button class="cloud-login-btn" onclick="openCloudModal()" title="Restify Cloud">Sign in</button>'
+    } else {
+      const initial = (_cloudUser.name || _cloudUser.email || '?').charAt(0).toUpperCase()
+      el.innerHTML = `
     <div class="cloud-status-pill" onclick="openCloudModal()" title="${escHtml(_cloudUser.email)}">
       <span class="cloud-avatar">${initial}</span>
       <span class="cloud-sync-icon ${_syncInProgress ? 'spinning' : ''}">↻</span>
     </div>
   `
+    }
+  }
+  _renderSidebarCloudLink()
 }
 
 export function openCloudModal(): void {
-  if (_cloudToken) {
-    _renderCloudAccountView()
-  } else {
-    _renderCloudLoginView()
-  }
+  if (_cloudToken) _renderCloudAccountView()
+  else _renderCloudLoginView()
   document.getElementById('cloudModal')?.classList.add('open')
 }
 
@@ -223,12 +299,10 @@ function _renderCloudLoginView(): void {
       <div class="cloud-form">
         <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="cloudEmail" placeholder="you@example.com" autocomplete="email"></div>
         <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="cloudPassword" placeholder="••••••" autocomplete="current-password"></div>
+        <div style="text-align:right;margin:-6px 0 8px"><button type="button" class="btn-text" style="font-size:12px;padding:0" onclick="cloudForgotPassword()">Forgot password?</button></div>
         <div id="cloudNameGroup" class="form-group" style="display:none"><label class="form-label">Name</label><input type="text" class="form-input" id="cloudName" placeholder="Your name" autocomplete="name"></div>
         <div id="cloudError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
         <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
-      </div>
-      <div style="margin-top:16px;text-align:center">
-        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(cloudBase())}" onchange="(function(v){v=String(v).trim().replace(/\\/+$/, '');localStorage.setItem('${LS_CLOUD_URL}', v);localStorage.removeItem('${LS_CLOUD_URL_LEGACY}');})(this.value)"></div>
       </div>
     </div>
   `
@@ -295,6 +369,7 @@ function _renderCloudAccountView(): void {
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn-primary" style="width:100%" onclick="cloudSync(); closeCloudModal();">↻ Sync Now</button>
+      <button class="btn-secondary" style="width:100%" onclick="closeCloudModal(); openTeamsModal();">👥 Teams</button>
       <button class="btn-secondary" style="width:100%" onclick="_cloudAutoSync()">Enable Auto-Sync</button>
       <div style="border-top:1px solid var(--border);margin:8px 0"></div>
       <button class="btn-secondary" style="width:100%;color:var(--red);border-color:var(--red)" onclick="cloudLogout(); closeCloudModal();">Sign Out</button>
@@ -320,5 +395,4 @@ export function _cloudAutoSync(): void {
   showNotif('Auto-sync enabled (every 60s)', 'success')
 }
 
-// Init on module load
 _loadCloudSession()

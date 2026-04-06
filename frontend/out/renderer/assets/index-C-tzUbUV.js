@@ -138,7 +138,9 @@ function appPrompt(title, message, opts) {
     const isTextarea = opts?.textarea;
     const input = document.createElement(isTextarea ? "textarea" : "input");
     input.className = isTextarea ? "app-dialog-textarea" : "app-dialog-input";
-    if (!isTextarea) input.type = "text";
+    if (!isTextarea) {
+      input.type = opts?.inputType === "password" ? "password" : "text";
+    }
     input.placeholder = opts?.placeholder || "";
     input.value = opts?.defaultValue || "";
     bodyEl.appendChild(input);
@@ -170,7 +172,7 @@ function appPrompt(title, message, opts) {
     footerEl.appendChild(okBtn);
     overlay.classList.add("open");
     input.focus();
-    if (!isTextarea) input.select();
+    if (!isTextarea && input.type !== "password") input.select();
     overlay.onkeydown = (e) => {
       if (e.key === "Escape") {
         overlay.classList.remove("open");
@@ -3345,15 +3347,19 @@ const LS_CLOUD_SESSION = "restify_cloud_session";
 const LS_CLOUD_SESSION_LEGACY = "restfy_cloud_session";
 const LS_CLOUD_URL = "restify_cloud_url";
 const LS_CLOUD_URL_LEGACY = "restfy_cloud_url";
-function cloudBase() {
+function cloudBase$1() {
   const u = localStorage.getItem(LS_CLOUD_URL) || localStorage.getItem(LS_CLOUD_URL_LEGACY);
   const t = u && String(u).trim();
-  const raw = t || CLOUD_DEFAULT;
-  return String(raw).replace(/\/+$/, "");
+  if (t) return String(t).replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const w = window.__RESTIFY_API_BASE__ ?? window.__RESTFY_API_BASE__;
+    if (w != null && String(w).trim() !== "") return String(w).trim().replace(/\/+$/, "");
+  }
+  return String(CLOUD_DEFAULT).replace(/\/+$/, "");
 }
 function cloudApiUrl(path) {
   const p = path.charAt(0) === "/" ? path : "/" + path;
-  return cloudBase() + p;
+  return cloudBase$1() + p;
 }
 async function _cloudReadJson(resp) {
   const text = await resp.text();
@@ -3373,12 +3379,12 @@ async function _cloudReadJson(resp) {
   return data;
 }
 let _cloudUser = null;
-let _cloudToken = null;
+let _cloudToken$1 = null;
 let _syncInProgress = false;
 let _lastSyncAt = 0;
-function _cloudHeaders() {
+function _cloudHeaders$1() {
   const h = { "Content-Type": "application/json" };
-  if (_cloudToken) h["Authorization"] = "Bearer " + _cloudToken;
+  if (_cloudToken$1) h["Authorization"] = "Bearer " + _cloudToken$1;
   return h;
 }
 function _loadCloudSession() {
@@ -3387,17 +3393,17 @@ function _loadCloudSession() {
     if (s) {
       const parsed = JSON.parse(s);
       _cloudUser = parsed.user;
-      _cloudToken = parsed.token;
+      _cloudToken$1 = parsed.token;
       _lastSyncAt = parsed.lastSyncAt || 0;
     }
   } catch {
   }
 }
 function _saveCloudSession() {
-  if (_cloudUser && _cloudToken) {
+  if (_cloudUser && _cloudToken$1) {
     localStorage.setItem(
       LS_CLOUD_SESSION,
-      JSON.stringify({ user: _cloudUser, token: _cloudToken, lastSyncAt: _lastSyncAt })
+      JSON.stringify({ user: _cloudUser, token: _cloudToken$1, lastSyncAt: _lastSyncAt })
     );
     localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
   } else {
@@ -3414,7 +3420,7 @@ async function cloudRegister(email, password, name) {
   });
   const data = await _cloudReadJson(resp);
   _cloudUser = data.user;
-  _cloudToken = data.token;
+  _cloudToken$1 = data.token;
   _saveCloudSession();
   return data;
 }
@@ -3427,7 +3433,7 @@ async function cloudLogin(email, password) {
   });
   const data = await _cloudReadJson(resp);
   _cloudUser = data.user;
-  _cloudToken = data.token;
+  _cloudToken$1 = data.token;
   _saveCloudSession();
   return data;
 }
@@ -3437,20 +3443,20 @@ async function cloudLogout() {
   } catch (_) {
   }
   _cloudUser = null;
-  _cloudToken = null;
+  _cloudToken$1 = null;
   _lastSyncAt = 0;
   _saveCloudSession();
   renderCloudStatus();
 }
 async function cloudSync() {
-  if (!_cloudToken || _syncInProgress) return;
+  if (!_cloudToken$1 || _syncInProgress) return;
   _syncInProgress = true;
   renderCloudStatus();
   try {
     const colResp = await fetch(cloudApiUrl("/api/collections/sync"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ collections: state.collections, lastSyncAt: _lastSyncAt })
     });
     if (colResp.status === 401) {
@@ -3461,7 +3467,7 @@ async function cloudSync() {
     const envResp = await fetch(cloudApiUrl("/api/environments/sync"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ environments: state.environments, globalVars: state.globalVars })
     });
     const envData = await _cloudReadJson(envResp);
@@ -3496,27 +3502,96 @@ async function cloudSync() {
     renderCloudStatus();
   }
 }
-function renderCloudStatus() {
-  const el = document.getElementById("cloudStatusArea");
-  if (!el) return;
-  if (!_cloudToken) {
-    el.innerHTML = '<button class="cloud-login-btn" onclick="openCloudModal()">Sign in</button>';
+function _renderSidebarCloudLink() {
+  const side = document.getElementById("sidebarCloudLink");
+  if (!side) return;
+  if (!_cloudToken$1) {
+    side.innerHTML = '<button type="button" class="sidebar-cloud-btn" onclick="openCloudModal()" title="Restify Cloud">☁ Cloud · Sign in</button>';
     return;
   }
-  const initial = (_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase();
-  el.innerHTML = `
+  const initial = (_cloudUser?.name || _cloudUser?.email || "?").charAt(0).toUpperCase();
+  side.innerHTML = `<button type="button" class="sidebar-cloud-btn sidebar-cloud-btn--in" onclick="openCloudModal()" title="${escHtml(_cloudUser?.email || "")}">☁ ${initial}</button>`;
+}
+async function cloudForgotPassword() {
+  const email = await appPrompt(
+    "Forgot password",
+    "If this email is registered, we will send you a reset link.",
+    { placeholder: "you@example.com", okLabel: "Send link" }
+  );
+  if (!email?.trim()) return;
+  try {
+    const resp = await fetch(cloudApiUrl("/api/auth/forgot-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() })
+    });
+    const data = await resp.json();
+    showNotif(data.message || "Check your email inbox.", "success");
+  } catch {
+    showNotif("Could not send request. Try again later.", "error");
+  }
+}
+async function maybeOpenPasswordResetFromUrl() {
+  if (typeof window === "undefined") return;
+  try {
+    const u = new URL(window.location.href);
+    const t = u.searchParams.get("resetPassword");
+    if (!t) return;
+    u.searchParams.delete("resetPassword");
+    window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+    const p1 = await appPrompt("New password", "Choose a password (at least 6 characters).", {
+      inputType: "password",
+      okLabel: "Continue"
+    });
+    if (!p1 || p1.length < 6) {
+      showNotif("Password must be at least 6 characters", "error");
+      return;
+    }
+    const p2 = await appPrompt("Confirm password", "Enter the same password again.", {
+      inputType: "password",
+      okLabel: "Reset password"
+    });
+    if (!p2) return;
+    if (p1 !== p2) {
+      showNotif("Passwords do not match", "error");
+      return;
+    }
+    const resp = await fetch(cloudApiUrl("/api/auth/reset-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: t, newPassword: p1 })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showNotif(data.error || "Reset failed", "error");
+      return;
+    }
+    showNotif("Password updated — you can sign in.", "success");
+    openCloudModal();
+  } catch {
+    showNotif("Reset failed", "error");
+  }
+}
+function renderCloudStatus() {
+  const el = document.getElementById("cloudStatusArea");
+  if (el) {
+    if (!_cloudToken$1) {
+      el.innerHTML = '<button class="cloud-login-btn" onclick="openCloudModal()" title="Restify Cloud">Sign in</button>';
+    } else {
+      const initial = (_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase();
+      el.innerHTML = `
     <div class="cloud-status-pill" onclick="openCloudModal()" title="${escHtml(_cloudUser.email)}">
       <span class="cloud-avatar">${initial}</span>
       <span class="cloud-sync-icon ${_syncInProgress ? "spinning" : ""}">↻</span>
     </div>
   `;
+    }
+  }
+  _renderSidebarCloudLink();
 }
 function openCloudModal() {
-  if (_cloudToken) {
-    _renderCloudAccountView();
-  } else {
-    _renderCloudLoginView();
-  }
+  if (_cloudToken$1) _renderCloudAccountView();
+  else _renderCloudLoginView();
   document.getElementById("cloudModal")?.classList.add("open");
 }
 function closeCloudModal() {
@@ -3534,12 +3609,10 @@ function _renderCloudLoginView() {
       <div class="cloud-form">
         <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="cloudEmail" placeholder="you@example.com" autocomplete="email"></div>
         <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="cloudPassword" placeholder="••••••" autocomplete="current-password"></div>
+        <div style="text-align:right;margin:-6px 0 8px"><button type="button" class="btn-text" style="font-size:12px;padding:0" onclick="cloudForgotPassword()">Forgot password?</button></div>
         <div id="cloudNameGroup" class="form-group" style="display:none"><label class="form-label">Name</label><input type="text" class="form-input" id="cloudName" placeholder="Your name" autocomplete="name"></div>
         <div id="cloudError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
         <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
-      </div>
-      <div style="margin-top:16px;text-align:center">
-        <div style="font-size:11px;color:var(--text-dim)">Server: <input type="text" id="cloudServerUrl" class="form-input" style="width:200px;display:inline;font-size:11px;padding:3px 6px" value="${escHtml(cloudBase())}" onchange="(function(v){v=String(v).trim().replace(/\\/+$/, '');localStorage.setItem('${LS_CLOUD_URL}', v);localStorage.removeItem('${LS_CLOUD_URL_LEGACY}');})(this.value)"></div>
       </div>
     </div>
   `;
@@ -3599,6 +3672,7 @@ function _renderCloudAccountView() {
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn-primary" style="width:100%" onclick="cloudSync(); closeCloudModal();">↻ Sync Now</button>
+      <button class="btn-secondary" style="width:100%" onclick="closeCloudModal(); openTeamsModal();">👥 Teams</button>
       <button class="btn-secondary" style="width:100%" onclick="_cloudAutoSync()">Enable Auto-Sync</button>
       <div style="border-top:1px solid var(--border);margin:8px 0"></div>
       <button class="btn-secondary" style="width:100%;color:var(--red);border-color:var(--red)" onclick="cloudLogout(); closeCloudModal();">Sign Out</button>
@@ -3617,7 +3691,7 @@ function _cloudAutoSync() {
     return;
   }
   _autoSyncInterval = setInterval(() => {
-    if (_cloudToken) cloudSync();
+    if (_cloudToken$1) cloudSync();
   }, 6e4);
   showNotif("Auto-sync enabled (every 60s)", "success");
 }
@@ -3895,6 +3969,396 @@ function renderTestResults(results) {
     badge.className = "tab-badge " + (failed > 0 ? "badge-fail" : "badge-pass");
   }
 }
+let _teams = [];
+let _teamDetail = null;
+function _cloudHeaders() {
+  const h = { "Content-Type": "application/json" };
+  const sess = localStorage.getItem("restify_cloud_session") || localStorage.getItem("restfy_cloud_session");
+  if (sess) {
+    try {
+      const parsed = JSON.parse(sess);
+      if (parsed.token) h["Authorization"] = "Bearer " + parsed.token;
+    } catch {
+    }
+  }
+  return h;
+}
+function _cloudToken() {
+  const sess = localStorage.getItem("restify_cloud_session") || localStorage.getItem("restfy_cloud_session");
+  if (!sess) return null;
+  try {
+    return JSON.parse(sess).token || null;
+  } catch {
+    return null;
+  }
+}
+function cloudBase() {
+  const u = localStorage.getItem("restify_cloud_url") || localStorage.getItem("restfy_cloud_url");
+  const t = u && String(u).trim();
+  if (t) return String(t).replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const w = window.__RESTIFY_API_BASE__ ?? window.__RESTFY_API_BASE__;
+    if (w != null && String(w).trim() !== "") return String(w).trim().replace(/\/+$/, "");
+  }
+  return "https://api.restify.online";
+}
+function teamApiUrl(path) {
+  const p = path.charAt(0) === "/" ? path : "/" + path;
+  return cloudBase() + p;
+}
+function openTeamsModal() {
+  if (!_cloudToken()) {
+    showNotif("Sign in to Restify Cloud to use Teams", "info");
+    return;
+  }
+  _teamDetail = null;
+  _renderTeamsList();
+  document.getElementById("teamsModal")?.classList.add("open");
+  void loadTeams();
+}
+function closeTeamsModal() {
+  document.getElementById("teamsModal")?.classList.remove("open");
+}
+async function loadTeams() {
+  try {
+    const resp = await fetch(teamApiUrl("/api/teams"), {
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) throw new Error("Failed to load teams");
+    const data = await resp.json();
+    _teams = data.teams || [];
+    _renderTeamsList();
+  } catch (err) {
+    showNotif("Could not load teams: " + err.message, "error");
+  }
+}
+async function createTeam() {
+  const name = await appPrompt("Create Team", "Enter a name for your team.", {
+    placeholder: "My Team",
+    okLabel: "Create"
+  });
+  if (!name?.trim()) return;
+  try {
+    const resp = await fetch(teamApiUrl("/api/teams"), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.error || "Failed to create team");
+    }
+    showNotif("Team created", "success");
+    void loadTeams();
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function openTeamDetail(teamId) {
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}`), {
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) throw new Error("Failed to load team");
+    _teamDetail = await resp.json();
+    _renderTeamDetail();
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function inviteToTeam(teamId) {
+  const email = await appPrompt("Invite Member", "Enter the email address of the person to invite.", {
+    placeholder: "teammate@example.com",
+    okLabel: "Send Invite"
+  });
+  if (!email?.trim()) return;
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/invite`), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ email: email.trim(), role: "member" })
+    });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.error || "Failed to invite");
+    }
+    showNotif("Invitation sent", "success");
+    void openTeamDetail(teamId);
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function maybeAcceptTeamInvite() {
+  if (typeof window === "undefined") return;
+  try {
+    const u = new URL(window.location.href);
+    const token = u.searchParams.get("teamInvite");
+    if (!token) return;
+    u.searchParams.delete("teamInvite");
+    window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+    if (!_cloudToken()) {
+      showNotif("Sign in first, then use the invite link again.", "info");
+      return;
+    }
+    const resp = await fetch(teamApiUrl("/api/teams/accept-invite"), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ token })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showNotif(data.error || "Invalid invite", "error");
+      return;
+    }
+    if (data.team) {
+      showNotif(`You joined team "${data.team.name}"!`, "success");
+    } else {
+      showNotif("Invite accepted", "success");
+    }
+    void loadTeams();
+  } catch {
+    showNotif("Failed to process invite", "error");
+  }
+}
+async function removeMember(teamId, userId, name) {
+  const ok = await appConfirm(`Remove ${name} from this team?`);
+  if (!ok) return;
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/members/${userId}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.error || "Failed");
+    }
+    showNotif("Member removed", "success");
+    void openTeamDetail(teamId);
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function changeMemberRole(teamId, userId, newRole) {
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/members/${userId}`), {
+      method: "PATCH",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ role: newRole })
+    });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.error || "Failed");
+    }
+    showNotif("Role updated", "success");
+    void openTeamDetail(teamId);
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function leaveTeam(teamId, teamName) {
+  const ok = await appConfirm(`Leave team "${teamName}"? You will lose access to shared collections.`);
+  if (!ok) return;
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/leave`), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) throw new Error("Failed to leave team");
+    showNotif("Left team", "success");
+    _teamDetail = null;
+    void loadTeams();
+    _renderTeamsList();
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function deleteTeam(teamId, teamName) {
+  const ok = await appConfirm(`Delete team "${teamName}"? This cannot be undone. All team collections and environments will be deleted.`);
+  if (!ok) return;
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) throw new Error("Failed to delete team");
+    showNotif("Team deleted", "success");
+    _teamDetail = null;
+    void loadTeams();
+    _renderTeamsList();
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function cancelInvite(teamId, inviteId) {
+  try {
+    const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/invites/${inviteId}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: _cloudHeaders()
+    });
+    if (!resp.ok) throw new Error("Failed");
+    showNotif("Invite cancelled", "success");
+    void openTeamDetail(teamId);
+  } catch (err) {
+    showNotif(err.message, "error");
+  }
+}
+async function syncTeamWorkspace(teamId) {
+  if (!_cloudToken()) return;
+  try {
+    const colResp = await fetch(teamApiUrl(`/api/teams/${teamId}/collections/sync`), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ collections: state.collections })
+    });
+    if (!colResp.ok) throw new Error("Sync failed");
+    const colData = await colResp.json();
+    const envResp = await fetch(teamApiUrl(`/api/teams/${teamId}/environments/sync`), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ environments: state.environments, globalVars: state.globalVars })
+    });
+    const envData = await envResp.json();
+    if (colData.collections) {
+      state.collections.length = 0;
+      colData.collections.forEach((c) => {
+        delete c._syncedAt;
+        state.collections.push(c);
+      });
+    }
+    if (envData.environments) {
+      state.environments.length = 0;
+      envData.environments.forEach((e) => {
+        delete e._syncedAt;
+        state.environments.push(e);
+      });
+    }
+    if (envData.globalVars) {
+      state.globalVars.length = 0;
+      envData.globalVars.forEach((v) => state.globalVars.push(v));
+    }
+    saveState();
+    if (typeof window.renderSidebar === "function") window.renderSidebar();
+    if (typeof window.renderEnvSelector === "function") window.renderEnvSelector();
+    showNotif("Team workspace synced", "success");
+  } catch (err) {
+    showNotif("Team sync error: " + err.message, "error");
+  }
+}
+function _renderTeamsList() {
+  const body = document.getElementById("teamsModalBody");
+  const title = document.getElementById("teamsModalTitle");
+  if (!body || !title) return;
+  title.textContent = "Teams";
+  if (_teams.length === 0) {
+    body.innerHTML = `
+      <div class="teams-list">
+        <div style="text-align:center;padding:32px 0;color:var(--text-dim)">
+          <div style="font-size:36px;opacity:.25;margin-bottom:12px">👥</div>
+          <div style="font-size:14px;font-weight:500;margin-bottom:6px;color:var(--text-secondary)">No teams yet</div>
+          <div style="font-size:12px;margin-bottom:16px">Create a team to collaborate with others on API collections and environments.</div>
+          <button class="btn-primary" onclick="createTeam()">+ Create Team</button>
+        </div>
+      </div>`;
+    return;
+  }
+  let html = `<div class="teams-list">
+    <div class="teams-list-header">
+      <h3>Your Teams</h3>
+      <button class="btn-primary" style="font-size:12px;padding:5px 14px" onclick="createTeam()">+ New Team</button>
+    </div>`;
+  for (const t of _teams) {
+    const initial = (t.name || "?").charAt(0).toUpperCase();
+    html += `<div class="team-card" onclick="openTeamDetail('${escHtml(t.id)}')">
+      <div class="team-card-icon">${initial}</div>
+      <div class="team-card-info">
+        <div class="team-card-name">${escHtml(t.name)}</div>
+        <div class="team-card-meta">${t.member_count || 1} member${(t.member_count || 1) !== 1 ? "s" : ""}</div>
+      </div>
+      <span class="team-card-role">${escHtml(t.role)}</span>
+    </div>`;
+  }
+  html += "</div>";
+  body.innerHTML = html;
+}
+function _renderTeamDetail() {
+  const body = document.getElementById("teamsModalBody");
+  const title = document.getElementById("teamsModalTitle");
+  if (!body || !title || !_teamDetail) return;
+  const team = _teamDetail.team;
+  const members = _teamDetail.members || [];
+  const invites = _teamDetail.pendingInvites || [];
+  const myRole = _teamDetail.myRole;
+  const canManage = myRole === "owner" || myRole === "admin";
+  title.textContent = team.name;
+  let html = `<div class="team-detail">
+    <div class="team-detail-header">
+      <button class="team-detail-back" onclick="openTeamsModal()" title="Back to teams">←</button>
+      <div class="team-detail-name">${escHtml(team.name)}</div>
+      <span class="team-card-role">${escHtml(myRole)}</span>
+    </div>
+
+    <button class="team-workspace-btn" onclick="syncTeamWorkspace('${escHtml(team.id)}'); closeTeamsModal()">↻ Sync Team Workspace</button>
+
+    <div class="team-section">
+      <div class="team-section-title">
+        <span>Members (${members.length})</span>
+        ${canManage ? `<button class="btn-text" onclick="inviteToTeam('${escHtml(team.id)}')">+ Invite</button>` : ""}
+      </div>`;
+  for (const m of members) {
+    const initial = (m.name || m.email || "?").charAt(0).toUpperCase();
+    const roleClass = m.role === "owner" ? " owner" : "";
+    html += `<div class="team-member-row">
+      <div class="team-member-avatar">${initial}</div>
+      <div class="team-member-info">
+        <div class="team-member-name">${escHtml(m.name || "Unnamed")}</div>
+        <div class="team-member-email">${escHtml(m.email)}</div>
+      </div>
+      <span class="team-member-role${roleClass}">${escHtml(m.role)}</span>`;
+    if (canManage && m.role !== "owner" && myRole === "owner") {
+      html += `<select style="font-size:10px;background:var(--bg-mid);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);padding:2px 4px;cursor:pointer" onchange="changeMemberRole('${escHtml(team.id)}','${escHtml(m.user_id)}',this.value)">
+        <option value="admin" ${m.role === "admin" ? "selected" : ""}>Admin</option>
+        <option value="member" ${m.role === "member" ? "selected" : ""}>Member</option>
+        <option value="viewer" ${m.role === "viewer" ? "selected" : ""}>Viewer</option>
+      </select>
+      <button class="btn-text ctx-danger" onclick="removeMember('${escHtml(team.id)}','${escHtml(m.user_id)}','${escHtml(m.name || m.email)}')" title="Remove">✕</button>`;
+    }
+    html += "</div>";
+  }
+  html += "</div>";
+  if (invites.length > 0) {
+    html += `<div class="team-section">
+      <div class="team-section-title"><span>Pending Invitations (${invites.length})</span></div>`;
+    for (const inv of invites) {
+      html += `<div class="team-invite-row">
+        <span class="team-invite-email">✉ ${escHtml(inv.email)}</span>
+        <span class="team-member-role">${escHtml(inv.role)}</span>
+        ${canManage ? `<button class="btn-text ctx-danger" onclick="cancelInvite('${escHtml(team.id)}','${escHtml(inv.id)}')" title="Cancel invite">✕</button>` : ""}
+      </div>`;
+    }
+    html += "</div>";
+  }
+  html += `<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:12px;display:flex;gap:8px">`;
+  if (myRole !== "owner") {
+    html += `<button class="btn-secondary" style="color:var(--red);border-color:var(--red);flex:1" onclick="leaveTeam('${escHtml(team.id)}','${escHtml(team.name)}')">Leave Team</button>`;
+  }
+  if (myRole === "owner") {
+    html += `<button class="btn-secondary" style="color:var(--red);border-color:var(--red);flex:1" onclick="deleteTeam('${escHtml(team.id)}','${escHtml(team.name)}')">Delete Team</button>`;
+  }
+  html += "</div></div>";
+  body.innerHTML = html;
+}
 initConfigDomains();
 initApiBase();
 Object.assign(window, {
@@ -4020,6 +4484,19 @@ Object.assign(window, {
   _submitCloudAuth,
   _cloudAutoSync,
   cloudLogout,
+  cloudForgotPassword,
+  // Teams
+  openTeamsModal,
+  closeTeamsModal,
+  createTeam,
+  openTeamDetail,
+  inviteToTeam,
+  removeMember,
+  changeMemberRole,
+  leaveTeam,
+  deleteTeam,
+  cancelInvite,
+  syncTeamWorkspace,
   // HTTP
   sendRequest,
   cancelRequest,
@@ -4032,6 +4509,8 @@ Object.assign(window, {
 });
 async function init() {
   loadTheme();
+  await maybeOpenPasswordResetFromUrl();
+  await maybeAcceptTeamInvite();
   await loadState();
   if (state.tabs.length === 0) {
     newTab();

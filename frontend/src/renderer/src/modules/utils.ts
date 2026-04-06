@@ -107,7 +107,15 @@ export function appConfirm(
 export function appPrompt(
   title: string,
   message?: string,
-  opts?: { placeholder?: string; defaultValue?: string; okLabel?: string; cancelLabel?: string; textarea?: boolean; allowEmpty?: boolean }
+  opts?: {
+    placeholder?: string
+    defaultValue?: string
+    okLabel?: string
+    cancelLabel?: string
+    textarea?: boolean
+    allowEmpty?: boolean
+    inputType?: 'text' | 'password'
+  }
 ): Promise<string | null> {
   return new Promise(resolve => {
     const overlay = document.getElementById('appDialogOverlay')!
@@ -124,7 +132,9 @@ export function appPrompt(
     const isTextarea = opts?.textarea
     const input = document.createElement(isTextarea ? 'textarea' : 'input') as HTMLInputElement
     input.className = isTextarea ? 'app-dialog-textarea' : 'app-dialog-input'
-    if (!isTextarea) (input as HTMLInputElement).type = 'text'
+    if (!isTextarea) {
+      (input as HTMLInputElement).type = opts?.inputType === 'password' ? 'password' : 'text'
+    }
     input.placeholder = opts?.placeholder || ''
     input.value = opts?.defaultValue || ''
     bodyEl.appendChild(input)
@@ -148,7 +158,7 @@ export function appPrompt(
     footerEl.appendChild(okBtn)
     overlay.classList.add('open')
     input.focus()
-    if (!isTextarea) (input as HTMLInputElement).select()
+    if (!isTextarea && (input as HTMLInputElement).type !== 'password') (input as HTMLInputElement).select()
     overlay.onkeydown = (e) => {
       if (e.key === 'Escape') { overlay.classList.remove('open'); resolve(null) }
     }

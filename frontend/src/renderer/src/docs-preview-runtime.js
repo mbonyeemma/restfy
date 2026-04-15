@@ -9,6 +9,44 @@ function esc(s) {
     : ''
 }
 
+function syntaxHighlight(json) {
+  if (json == null) return ''
+  const s = String(json)
+  let result = ''
+  let lastIndex = 0
+  const re = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    result += esc(s.slice(lastIndex, m.index))
+    const match = m[0]
+    let cls = 'json-number'
+    if (/^"/.test(match)) {
+      cls = /:$/.test(match) ? 'json-key' : 'json-string'
+    } else if (/true|false/.test(match)) {
+      cls = 'json-bool'
+    } else if (/null/.test(match)) {
+      cls = 'json-null'
+    }
+    result += '<span class="' + cls + '">' + esc(match) + '</span>'
+    lastIndex = re.lastIndex
+  }
+  result += esc(s.slice(lastIndex))
+  return result
+}
+
+function formatMaybeJson(raw) {
+  const text = String(raw || '')
+  const trimmed = text.trim()
+  if (!trimmed) return { html: esc(text), isJson: false }
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return { html: esc(text), isJson: false }
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2)
+    return { html: syntaxHighlight(pretty), isJson: true }
+  } catch (e) {
+    return { html: esc(text), isJson: false }
+  }
+}
+
 window.switchCodeTab = function (epId, lang) {
   const tabs = document.getElementById('ct-' + epId)
   if (!tabs) return
@@ -47,10 +85,7 @@ window.sendTryIt = async function (epId, method, _origUrl) {
     const resp = await fetch(url, opts)
     const elapsed = Math.round(performance.now() - start)
     const text = await resp.text()
-    let display = text
-    try {
-      display = JSON.stringify(JSON.parse(text), null, 2)
-    } catch (e) {}
+    const formatted = formatMaybeJson(text)
 
     const statusClass = resp.status < 300 ? 's2xx' : resp.status < 500 ? 's4xx' : 's5xx'
     resultDiv.innerHTML =
@@ -70,10 +105,12 @@ window.sendTryIt = async function (epId, method, _origUrl) {
       epId +
       '\').textContent)">Copy</button>' +
       '</div>' +
-      '<div class="try-it-resp-body" id="tryit-resp-body-' +
+      '<div class="try-it-resp-body' +
+      (formatted.isJson ? ' json-highlighted' : '') +
+      '" id="tryit-resp-body-' +
       epId +
       '">' +
-      esc(display) +
+      formatted.html +
       '</div>' +
       '</div>'
   } catch (err) {

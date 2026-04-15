@@ -2,6 +2,8 @@
  * Shared HTML for published API docs (used by docs viewer + in-app preview).
  */
 
+import { syntaxHighlight } from './modules/utils'
+
 export function esc(s: any): string {
   return s
     ? String(s)
@@ -69,6 +71,9 @@ function langLabel(lang: string): string {
   return labels[lang] || lang
 }
 
+const JSON_MARKER_START = '__RESTIFY_JSON_START__'
+const JSON_MARKER_END = '__RESTIFY_JSON_END__'
+
 function buildCodeSample(req: any, lang: string): string {
   const m = req.method || 'GET'
   let url = req.url || ''
@@ -86,6 +91,9 @@ function buildCodeSample(req: any, lang: string): string {
 
   const body =
     m !== 'GET' && m !== 'HEAD' && (req.bodyType === 'json' || req.bodyType === 'raw') && req.body ? req.body : ''
+  const isJsonBody = req.bodyType === 'json' && !!body
+  const markJsonSegment = (segment: string): string =>
+    isJsonBody ? `${JSON_MARKER_START}${segment}${JSON_MARKER_END}` : segment
 
   switch (lang) {
     case 'curl': {
@@ -93,7 +101,7 @@ function buildCodeSample(req: any, lang: string): string {
       hdrs.forEach((h: any) => {
         parts.push(`  -H '${h.key}: ${h.value}'`)
       })
-      if (body) parts.push(`  -d '${body.replace(/'/g, "'\\''")}'`)
+      if (body) parts.push(`  -d '${markJsonSegment(body.replace(/'/g, "'\\''"))}'`)
       return parts.join(' \\\n')
     }
     case 'javascript': {
@@ -109,7 +117,7 @@ function buildCodeSample(req: any, lang: string): string {
           })
           s += `\n  },`
         }
-        if (body) s += `\n  body: JSON.stringify(${body}),`
+        if (body) s += `\n  body: JSON.stringify(${markJsonSegment(body)}),`
         s += `\n});\nconst data = await response.json();\nconsole.log(data);`
       }
       return s
@@ -124,7 +132,7 @@ function buildCodeSample(req: any, lang: string): string {
         s += `}\n\n`
       }
       if (body) {
-        s += `payload = ${body}\n\n`
+        s += `payload = ${markJsonSegment(body)}\n\n`
       }
       s += `response = requests.${m.toLowerCase()}(\n    '${url}'`
       if (hdrs.length) s += `,\n    headers=headers`
@@ -141,7 +149,7 @@ function buildCodeSample(req: any, lang: string): string {
         })
         s += `\n    ],`
       }
-      if (body) s += `\n    CURLOPT_POSTFIELDS => '${body.replace(/'/g, "\\'")}',`
+      if (body) s += `\n    CURLOPT_POSTFIELDS => '${markJsonSegment(body.replace(/'/g, "\\'"))}',`
       s += `\n]);\n\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`
       return s
     }
@@ -150,7 +158,7 @@ function buildCodeSample(req: any, lang: string): string {
       if (body) s += `\t"strings"\n`
       s += `)\n\nfunc main() {\n`
       if (body) {
-        s += `\tbody := strings.NewReader(\`${body}\`)\n`
+        s += `\tbody := strings.NewReader(\`${markJsonSegment(body)}\`)\n`
         s += `\treq, _ := http.NewRequest("${m}", "${url}", body)\n`
       } else {
         s += `\treq, _ := http.NewRequest("${m}", "${url}", nil)\n`
@@ -164,6 +172,52 @@ function buildCodeSample(req: any, lang: string): string {
     default:
       return ''
   }
+}
+
+function formatMaybeJsonBody(body: string, forceJson = false): { html: string; isJson: boolean } {
+  const raw = String(body || '')
+  if (!raw) return { html: '', isJson: false }
+  const trimmed = raw.trim()
+  if (!trimmed) return { html: esc(raw), isJson: false }
+  const shouldTryParse = forceJson || trimmed.startsWith('{') || trimmed.startsWith('[')
+  if (!shouldTryParse) return { html: esc(raw), isJson: false }
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2)
+    return { html: syntaxHighlight(pretty), isJson: true }
+  } catch {
+    return { html: esc(raw), isJson: false }
+  }
+}
+
+function renderCodeSampleHtml(sample: string): { html: string; isJson: boolean } {
+  const src = String(sample || '')
+  if (!src.includes(JSON_MARKER_START) || !src.includes(JSON_MARKER_END)) {
+    return { html: esc(src), isJson: false }
+  }
+
+  let out = ''
+  let cursor = 0
+  let hasJson = false
+  while (cursor < src.length) {
+    const start = src.indexOf(JSON_MARKER_START, cursor)
+    if (start === -1) {
+      out += esc(src.slice(cursor))
+      break
+    }
+    out += esc(src.slice(cursor, start))
+    const jsonStart = start + JSON_MARKER_START.length
+    const end = src.indexOf(JSON_MARKER_END, jsonStart)
+    if (end === -1) {
+      out += esc(src.slice(start))
+      break
+    }
+    const jsonFragment = src.slice(jsonStart, end)
+    out += syntaxHighlight(jsonFragment)
+    hasJson = true
+    cursor = end + JSON_MARKER_END.length
+  }
+
+  return { html: out, isJson: hasJson }
 }
 
 function renderEndpoint(req: any): string {
@@ -197,15 +251,8 @@ function renderEndpoint(req: any): string {
   if (hasBody) {
     left += `<div class="section-label">Body <span style="text-transform:none;letter-spacing:0;font-weight:400">(${esc(req.bodyType)})</span></div>`
     if (req.bodyType === 'json' || req.bodyType === 'raw' || req.bodyType === 'graphql') {
-      let display = req.body || ''
-      if (req.bodyType === 'json') {
-        try {
-          display = JSON.stringify(JSON.parse(display), null, 2)
-        } catch {
-          /* keep */
-        }
-      }
-      left += `<div class="code-block"><pre>${esc(display)}</pre></div>`
+      const body = formatMaybeJsonBody(req.body || '', req.bodyType === 'json')
+      left += `<div class="code-block${body.isJson ? ' json-highlighted' : ''}"><pre>${body.html}</pre></div>`
     } else if (req.bodyType === 'form' || req.bodyType === 'urlencoded') {
       const fields = (req.bodyForm || []).filter((f: any) => f.key)
       if (fields.length) {
@@ -229,9 +276,10 @@ function renderEndpoint(req: any): string {
   right += `</div>`
 
   langs.forEach((lang, i) => {
-    right += `<div class="code-block" id="cb-${esc(epId)}-${lang}" style="${i > 0 ? 'display:none' : ''}">
+    const sample = renderCodeSampleHtml(codeSamples[lang])
+    right += `<div class="code-block${sample.isJson ? ' json-highlighted' : ''}" id="cb-${esc(epId)}-${lang}" style="${i > 0 ? 'display:none' : ''}">
       <div class="code-block-header"><span>${langLabel(lang)}</span><button class="copy-btn" onclick="copyBlock('cb-${esc(epId)}-${lang}')">Copy</button></div>
-      <pre>${esc(codeSamples[lang])}</pre>
+      <pre>${sample.html}</pre>
     </div>`
   })
 

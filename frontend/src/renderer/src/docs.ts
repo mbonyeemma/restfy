@@ -1,6 +1,7 @@
 // Enhanced API docs viewer — search, multi-lang code, try-it, scroll-tracking
 
 import { esc, buildDocsContentHtml, countAll, allRequests } from './published-docs-html'
+import { syntaxHighlight } from './modules/utils'
 
 ;(function initConfigDomains() {
   if (typeof window === 'undefined' || !window.location) return
@@ -29,6 +30,19 @@ import { esc, buildDocsContentHtml, countAll, allRequests } from './published-do
 })()
 
 // ── Helpers ───────────────────────────────────────────────────
+
+function formatMaybeJson(raw: string): { html: string; isJson: boolean } {
+  const text = String(raw || '')
+  const trimmed = text.trim()
+  if (!trimmed) return { html: esc(text), isJson: false }
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return { html: esc(text), isJson: false }
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2)
+    return { html: syntaxHighlight(pretty), isJson: true }
+  } catch {
+    return { html: esc(text), isJson: false }
+  }
+}
 
 function getCollectionId(): string {
   const path = window.location.pathname || ''
@@ -246,8 +260,7 @@ function buildContent(col: any, meta: any): void {
     const resp = await fetch(url, opts)
     const elapsed = Math.round(performance.now() - start)
     const text = await resp.text()
-    let display = text
-    try { display = JSON.stringify(JSON.parse(text), null, 2) } catch {}
+    const formatted = formatMaybeJson(text)
 
     const statusClass = resp.status < 300 ? 's2xx' : resp.status < 500 ? 's4xx' : 's5xx'
     resultDiv.innerHTML = `<div class="try-it-response">
@@ -256,7 +269,7 @@ function buildContent(col: any, meta: any): void {
         <span class="try-it-resp-time">${elapsed}ms</span>
         <button class="copy-btn" style="margin-left:auto" onclick="copyInline(this,document.getElementById('tryit-resp-body-${esc(epId)}').textContent)">Copy</button>
       </div>
-      <div class="try-it-resp-body" id="tryit-resp-body-${esc(epId)}">${esc(display)}</div>
+      <div class="try-it-resp-body${formatted.isJson ? ' json-highlighted' : ''}" id="tryit-resp-body-${esc(epId)}">${formatted.html}</div>
     </div>`
   } catch (err: any) {
     resultDiv.innerHTML = `<div style="color:var(--red);font-size:12px;padding:8px">Error: ${esc(err.message)}</div>`

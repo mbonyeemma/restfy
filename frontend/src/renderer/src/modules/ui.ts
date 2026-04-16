@@ -1,7 +1,7 @@
 import {
   state, saveState, makeDefaultKv, makeRequest, makeFolder, makeCollection,
   deepClone, findNodeInAll, findParentInAll, getSiblingArrayForNode,
-  reorderAmongSiblings, getInheritedHeaders, getInheritedAuth,
+  reorderAmongSiblings, crossParentMove, getInheritedHeaders, getInheritedAuth,
   deleteNode, duplicateNode, assignNewIds, countRequests, resolveVariables,
   lookupVariableKey, addToHistory
 } from './state'
@@ -42,9 +42,21 @@ let _collectionTreeFilter = ''
 let _treeDragActiveId: string | null = null
 
 function clearTreeDropTargetClasses() {
-  document.querySelectorAll('.tree-drop-target, .tree-drop-after').forEach(el => {
-    el.classList.remove('tree-drop-target', 'tree-drop-after')
+  document.querySelectorAll('.tree-drop-target, .tree-drop-after, .tree-drop-inside').forEach(el => {
+    el.classList.remove('tree-drop-target', 'tree-drop-after', 'tree-drop-inside')
   })
+}
+
+function getDropPosition(e: DragEvent, rowEl: HTMLElement, isContainer: boolean): 'before' | 'after' | 'inside' {
+  const rect = rowEl.getBoundingClientRect()
+  const y = e.clientY - rect.top
+  const h = rect.height
+  if (isContainer) {
+    if (y < h * 0.25) return 'before'
+    if (y > h * 0.75) return 'after'
+    return 'inside'
+  }
+  return y < h / 2 ? 'before' : 'after'
 }
 
 function bindTreeRowDnD(rowEl: HTMLElement, nodeId: string) {
@@ -68,28 +80,33 @@ function bindTreeRowDnD(rowEl: HTMLElement, nodeId: string) {
   }
   rowEl.ondragover = (e) => {
     if (!_treeDragActiveId || _treeDragActiveId === nodeId) return
-    const arrA = getSiblingArrayForNode(_treeDragActiveId)
-    const arrB = getSiblingArrayForNode(nodeId)
-    if (!arrA || arrA !== arrB) return
     e.preventDefault()
     e.dataTransfer!.dropEffect = 'move'
-    const rect = rowEl.getBoundingClientRect()
-    const after = e.clientY > rect.top + rect.height / 2
+    const isContainer = rowEl.classList.contains('tree-folder-header')
+    const pos = getDropPosition(e, rowEl, isContainer)
     clearTreeDropTargetClasses()
     rowEl.classList.add('tree-drop-target')
-    if (after) rowEl.classList.add('tree-drop-after')
+    if (pos === 'after') rowEl.classList.add('tree-drop-after')
+    else if (pos === 'inside') rowEl.classList.add('tree-drop-inside')
   }
   rowEl.ondragleave = (e) => {
-    if (!rowEl.contains(e.relatedTarget as Node)) rowEl.classList.remove('tree-drop-target', 'tree-drop-after')
+    if (!rowEl.contains(e.relatedTarget as Node)) rowEl.classList.remove('tree-drop-target', 'tree-drop-after', 'tree-drop-inside')
   }
   rowEl.ondrop = (e) => {
     e.preventDefault(); e.stopPropagation()
     const dragId = e.dataTransfer!.getData('text/plain')
-    rowEl.classList.remove('tree-drop-target', 'tree-drop-after')
+    rowEl.classList.remove('tree-drop-target', 'tree-drop-after', 'tree-drop-inside')
     if (!dragId || dragId === nodeId) return
-    const rect = rowEl.getBoundingClientRect()
-    const placeAfter = e.clientY > rect.top + rect.height / 2
-    if (reorderAmongSiblings(dragId, nodeId, placeAfter)) {
+    const isContainer = rowEl.classList.contains('tree-folder-header')
+    const pos = getDropPosition(e, rowEl, isContainer)
+    const sameSiblings = getSiblingArrayForNode(dragId) === getSiblingArrayForNode(nodeId) && pos !== 'inside'
+    let ok = false
+    if (sameSiblings) {
+      ok = reorderAmongSiblings(dragId, nodeId, pos === 'after')
+    } else {
+      ok = crossParentMove(dragId, nodeId, pos)
+    }
+    if (ok) {
       saveState()
       const sb = document.querySelector<HTMLInputElement>('.sidebar-search')
       renderSidebar(sb ? sb.value : '')
@@ -201,7 +218,7 @@ function loadTabState(id: string) {
   const bodyContent = d.body ?? ''
   ;(document.getElementById('bodyTextarea') as HTMLTextAreaElement).value = bodyContent
 
-  const bt = d.bodyType || 'none'
+  const bt = (d.bodyType && d.bodyType !== 'none' && d.bodyType !== 'raw') ? d.bodyType : 'json'
 
   // silent=true → updates visibility/state flags without trying to rebuild the
   // CM editor (we do that explicitly below for json/raw).
@@ -224,9 +241,13 @@ function loadTabState(id: string) {
   if (prs) prs.value = d.preRequestScript || ''
   const ts = document.getElementById('testScriptEditor') as HTMLTextAreaElement | null
   if (ts) ts.value = d.testScript || ''
-  if ((d as any).response) restoreResponse((d as any).response)
+  const activeSaved = (d as any).activeResponseId
+    ? ((d as any).responses || []).find((r: any) => r.id === (d as any).activeResponseId)
+    : null
+  if (activeSaved) restoreResponse(activeSaved)
+  else if ((d as any).response) restoreResponse((d as any).response)
   else showResponsePlaceholder()
-  switchReqTab(t.sourceId ? 'body' : 'params')
+  switchReqTab('body')
 }
 
 export function renderTabs() {
@@ -718,7 +739,7 @@ function renderFolderEditor(node: any) {
   const titleEl = document.getElementById('folderEditorTitle')
   const iconEl = document.getElementById('folderEditorIcon')
   if (titleEl) titleEl.textContent = node.name
-  if (iconEl) iconEl.textContent = node.type === 'collection' ? '📦' : '📁'
+  if (iconEl) iconEl.textContent = ''
   renderKvEditor('folderHeadersEditor', node.headers || [], 'folderHeaders')
   ;(document.getElementById('folderAuthType') as HTMLSelectElement).value = node.auth?.type || 'none'
   updateFolderAuthFields(node.auth)
@@ -1145,16 +1166,98 @@ export function showEmpty() {
 
 export function updateMethodColor() {
   const sel = document.getElementById('methodSelect') as HTMLSelectElement
-  const method = sel.value
+  const method = (sel.value || 'GET').toUpperCase()
   sel.className = 'method-select m-' + method
   const urlInput = document.getElementById('urlInput') as HTMLInputElement
   if (urlInput) urlInput.className = 'url-input method-border-' + method
   const t = state.tabs.find(t => t.id === state.activeTabId)
-  if (t) { t.method = method; renderTabs() }
+  if (t) {
+    t.method = method
+    // Keep saved request nodes in sync so sidebar badges update immediately.
+    if (t.sourceId) {
+      const source = findNodeInAll(t.sourceId)
+      if (source && source.type === 'request' && source.method !== method) {
+        source.method = method
+        if (state.sidebarMode === 'collections') renderSidebar()
+        saveState()
+      }
+    }
+    renderTabs()
+  }
 }
 
 export function copyResponse() {
   if ((window as any)._lastResponse) navigator.clipboard.writeText((window as any)._lastResponse).then(() => showNotif('Copied!', 'success'))
+}
+
+function formatResponseSnapshotLabel(snapshot: any, idx: number): string {
+  if (snapshot?.label) return snapshot.label
+  const ts = snapshot?.createdAt ? new Date(snapshot.createdAt).toLocaleTimeString() : `#${idx + 1}`
+  const status = snapshot?.statusCode ? ` ${snapshot.statusCode}` : ''
+  return `${ts}${status}`
+}
+
+export function renderResponseSnapshotOptions() {
+  const sel = document.getElementById('responseSnapshotSelect') as HTMLSelectElement | null
+  if (!sel) return
+  const d = state.activeTabId ? state.tabData[state.activeTabId] as any : null
+  sel.innerHTML = '<option value="">Latest response</option>'
+  const list = d?.responses || []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const snap = list[i]
+    const label = formatResponseSnapshotLabel(snap, i)
+    sel.innerHTML += `<option value="${escHtml(snap.id)}">${escHtml(label)}</option>`
+  }
+  if (d?.activeResponseId) sel.value = d.activeResponseId
+  else sel.value = ''
+}
+
+export function selectSavedResponse(snapshotId: string) {
+  const d = state.activeTabId ? state.tabData[state.activeTabId] as any : null
+  if (!d) return
+  if (!snapshotId) {
+    d.activeResponseId = ''
+    if (d.response) restoreResponse(d.response)
+    else showResponsePlaceholder()
+    saveState()
+    return
+  }
+  const snap = (d.responses || []).find((r: any) => r.id === snapshotId)
+  if (!snap) return
+  d.activeResponseId = snapshotId
+  restoreResponse(snap)
+  saveState()
+}
+
+export function addResponseSnapshot(snapshot: any, setActive = true) {
+  if (!state.activeTabId || !state.tabData[state.activeTabId] || !snapshot) return
+  const d = state.tabData[state.activeTabId] as any
+  const snap = { ...snapshot, id: snapshot.id || genId(), createdAt: snapshot.createdAt || Date.now() }
+  d.response = snap
+  if (!Array.isArray(d.responses)) d.responses = []
+  d.responses.push(snap)
+  if (d.responses.length > 30) d.responses = d.responses.slice(-30)
+  if (setActive) d.activeResponseId = snap.id
+  renderResponseSnapshotOptions()
+}
+
+export function saveCurrentResponseSnapshot() {
+  if (!state.activeTabId || !state.tabData[state.activeTabId]) return
+  const d = state.tabData[state.activeTabId] as any
+  if (!d.response) return showNotif('No response to save yet', 'info')
+  const cloned = {
+    ...d.response,
+    id: genId(),
+    createdAt: Date.now(),
+    label: `Saved ${new Date().toLocaleTimeString()}`,
+  }
+  if (!Array.isArray(d.responses)) d.responses = []
+  d.responses.push(cloned)
+  if (d.responses.length > 30) d.responses = d.responses.slice(-30)
+  d.activeResponseId = cloned.id
+  renderResponseSnapshotOptions()
+  saveState()
+  showNotif('Response snapshot saved', 'success')
 }
 
 export function switchResponseMode(mode: string) {
@@ -1174,6 +1277,7 @@ export function showResponsePlaceholder() {
   ;['copyRespBtn', 'curlBtn', 'codeGenBtn', 'beautifyRespBtn'].forEach(id => { const e = el(id); if (e) e.style.display = 'none' })
   const ph = el('responsePlaceholder'); if (ph) ph.style.display = 'block'
   ;['responseBodyContent', 'responseBodyRaw', 'responseBodyPreview'].forEach(id => { const e = el(id); if (e) e.style.display = 'none' })
+  renderResponseSnapshotOptions()
 }
 
 export function restoreResponse(cached: any) {
@@ -1191,6 +1295,7 @@ export function restoreResponse(cached: any) {
   const rcb = el('respCookiesBody'); if (rcb && cached.cookiesHtml) rcb.innerHTML = cached.cookiesHtml
   ;(window as any)._lastResponse = cached.bodyRaw
   switchResponseMode('pretty')
+  renderResponseSnapshotOptions()
 }
 
 // ── Save Modal ────────────────────────────────────────────────────

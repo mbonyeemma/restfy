@@ -778,6 +778,18 @@ function _persistActiveWorkspace(id: string): void {
   try { localStorage.setItem(LS_ACTIVE_WS, id) } catch {}
 }
 
+/** Reset team/workspace picker state when the cloud session ends (see cloudLogout). */
+export function clearWorkspaceContextOnLogout(): void {
+  _activeWorkspaceId = null
+  _teams = []
+  _workspaces = []
+  try {
+    localStorage.removeItem(LS_ACTIVE_WS)
+  } catch (_) {}
+  const nameEl = document.getElementById('workspaceBannerNameText')
+  if (nameEl) nameEl.textContent = 'My Workspace'
+}
+
 function _renderWorkspaceBanner(): void {
   const nameEl = document.getElementById('workspaceBannerNameText')
   const banner = document.getElementById('workspaceBanner')

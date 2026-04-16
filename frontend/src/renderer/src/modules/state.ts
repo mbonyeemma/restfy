@@ -242,6 +242,72 @@ export function reorderAmongSiblings(dragId: string, targetId: string, placeAfte
   return true
 }
 
+export function isDescendantOf(nodeId: string, ancestorId: string): boolean {
+  const ancestor = findNodeInAll(ancestorId) as any
+  if (!ancestor || !ancestor.children) return false
+  return !!findNodeById(nodeId, ancestor.children)
+}
+
+export function removeNodeFromTree(nodeId: string): TreeNode | null {
+  const colIdx = state.collections.findIndex(c => c.id === nodeId)
+  if (colIdx !== -1) return state.collections.splice(colIdx, 1)[0] as TreeNode
+  const parent = findParentInAll(nodeId)
+  if (parent && (parent as any).children) {
+    const idx = (parent as any).children.findIndex((c: TreeNode) => c.id === nodeId)
+    if (idx !== -1) return (parent as any).children.splice(idx, 1)[0]
+  }
+  return null
+}
+
+export function insertNodeAt(node: TreeNode, targetId: string, position: 'before' | 'after' | 'inside'): boolean {
+  if (position === 'inside') {
+    const target = findNodeInAll(targetId) as any
+    if (!target || !target.children) return false
+    target.children.push(node)
+    return true
+  }
+  const colIdx = state.collections.findIndex(c => c.id === targetId)
+  if (colIdx !== -1) {
+    const pos = position === 'after' ? colIdx + 1 : colIdx
+    state.collections.splice(pos, 0, node as CollectionNode)
+    return true
+  }
+  const parent = findParentInAll(targetId) as any
+  if (!parent || !parent.children) return false
+  const idx = parent.children.findIndex((c: TreeNode) => c.id === targetId)
+  if (idx === -1) return false
+  parent.children.splice(position === 'after' ? idx + 1 : idx, 0, node)
+  return true
+}
+
+export function crossParentMove(dragId: string, targetId: string, position: 'before' | 'after' | 'inside'): boolean {
+  if (dragId === targetId) return false
+  const dragNode = findNodeInAll(dragId)
+  if (!dragNode) return false
+
+  if (dragNode.type === 'collection') {
+    if (position === 'inside') return false
+    const targetNode = findNodeInAll(targetId)
+    if (!targetNode || targetNode.type !== 'collection') return false
+    return reorderAmongSiblings(dragId, targetId, position === 'after')
+  }
+
+  if (isDescendantOf(targetId, dragId)) return false
+
+  if (position === 'inside') {
+    const target = findNodeInAll(targetId) as any
+    if (!target || !target.children) return false
+  }
+
+  const removed = removeNodeFromTree(dragId)
+  if (!removed) return false
+  if (!insertNodeAt(removed, targetId, position)) {
+    state.collections.push(removed as CollectionNode)
+    return false
+  }
+  return true
+}
+
 // ── Persistence ───────────────────────────────────────────────────
 
 let _diskPersistTimer: ReturnType<typeof setTimeout> | null = null
@@ -269,7 +335,10 @@ function buildStateObject() {
       params: d.params, headers: d.headers, bodyForm: d.bodyForm,
       bodyType: d.bodyType, body: d.body, graphqlVars: d.graphqlVars || '',
       auth: d.auth, preRequestScript: d.preRequestScript || '',
-      testScript: d.testScript || '', pinned: d.pinned || false
+      testScript: d.testScript || '', pinned: d.pinned || false,
+      response: (d as any).response || null,
+      responses: (d as any).responses || [],
+      activeResponseId: (d as any).activeResponseId || ''
     }
   }
   return data
@@ -312,6 +381,28 @@ export function saveState(opts?: SaveStateOptions): void {
       scheduleDiskPersist(json)
     }
   }
+}
+
+/** Clear collections, environments, tabs, and history from memory and persistence. Used after cloud sign-out so data is not left visible on a shared device. */
+export function clearLocalWorkspaceAndPersist(): void {
+  state.collections.length = 0
+  state.environments.length = 0
+  state.activeEnvId = null
+  state.globalVars.length = 0
+  state.history.length = 0
+  state.tabs.length = 0
+  state.activeTabId = null
+  state.tabData = {}
+  state.openFolders.clear()
+  state.pendingImport = null
+  state.editingNodeId = null
+  state.sidebarMode = 'collections'
+  state.currentBodyType = 'none'
+  try {
+    localStorage.removeItem(LS_DATA)
+    localStorage.removeItem(LS_DATA_LEGACY)
+  } catch (_) {}
+  saveState({ forceDisk: true })
 }
 
 function applyStateFromData(d: any): void {

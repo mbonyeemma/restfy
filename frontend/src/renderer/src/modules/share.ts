@@ -1,5 +1,8 @@
 import { state, findNodeInAll, deepClone, assignNewIds, saveState } from './state'
+import { isCloudLoggedIn } from './cloud'
 import { showNotif } from './utils'
+
+const PENDING_IMPORT_KEY = 'restify_pending_import'
 
 function _publishApiRoot(): string {
   if (typeof window.getRestifyApiBase === 'function') {
@@ -62,13 +65,11 @@ export async function shareCollection(colId: string): Promise<void> {
 function showShareResult(result: any, name: string): void {
   const nameEl = document.getElementById('shareCollectionName')
   const docUrlEl = document.getElementById('shareDocUrl') as HTMLInputElement | null
-  const importUrlEl = document.getElementById('shareImportUrl') as HTMLInputElement | null
   const docLinkEl = document.getElementById('shareDocLink') as HTMLAnchorElement | null
   const shareModal = document.getElementById('shareModal')
 
   if (nameEl) nameEl.textContent = name
   if (docUrlEl) docUrlEl.value = result.docUrl
-  if (importUrlEl) importUrlEl.value = result.importUrl
   if (docLinkEl) {
     docLinkEl.href = result.docUrl
     docLinkEl.rel = 'noopener noreferrer'
@@ -98,10 +99,31 @@ export function copyShareUrl(inputId: string): void {
   navigator.clipboard.writeText(input.value).then(() => showNotif('Link copied!', 'success'))
 }
 
+/** If not signed in, keep `?import=` for after login (workspace is gated). */
+export function stashSharedImportParamIfNeeded(): void {
+  if (isCloudLoggedIn()) return
+  const params = new URLSearchParams(window.location.search)
+  const id = params.get('import')
+  if (!id) return
+  try {
+    sessionStorage.setItem(PENDING_IMPORT_KEY, id)
+    const u = new URL(window.location.href)
+    u.searchParams.delete('import')
+    window.history.replaceState({}, '', u.pathname + u.search + u.hash)
+  } catch (_) {}
+}
+
 export async function checkAutoImport(): Promise<void> {
   const params = new URLSearchParams(window.location.search)
-  const importId = params.get('import')
-  if (!importId) return
+  let importId = params.get('import')
+  if (!importId) {
+    try {
+      importId = sessionStorage.getItem(PENDING_IMPORT_KEY)
+    } catch {
+      return
+    }
+    if (!importId) return
+  }
 
   try {
     const resp = await fetch(apiSharedUrl(importId))
@@ -118,6 +140,9 @@ export async function checkAutoImport(): Promise<void> {
       showNotif(`Imported "${col.name}"`, 'success')
       window.history.replaceState({}, '', '/')
     }
+    try {
+      sessionStorage.removeItem(PENDING_IMPORT_KEY)
+    } catch (_) {}
   } catch (err: any) {
     showNotif('Import failed: ' + err.message, 'error')
   }

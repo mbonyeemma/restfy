@@ -1,18 +1,19 @@
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import db from "../db";
 import { ANONYMOUS_USER_ID } from "../config/constants";
 import { register, login, authMiddleware, setAuthCookie, clearAuthCookie } from "../auth";
-import { sendWelcomeEmail, sendPasswordResetEmail } from "../lib/email";
+import { sendWelcomeEmail, sendPasswordResetEmail, sendSignupOtpEmail } from "../lib/email";
 
 const router = Router();
 
 router.post("/register", (req: Request, res: Response) => {
-  const { email, password, name } = req.body as {
+  const { email, password, name, otp } = req.body as {
     email?: string;
     password?: string;
     name?: string;
+    otp?: string;
   };
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });
@@ -22,6 +23,35 @@ router.post("/register", (req: Request, res: Response) => {
     res.status(400).json({ error: "Password must be at least 6 characters" });
     return;
   }
+  const normalized = email.trim().toLowerCase();
+  const oneTimeCode = String(otp || "").trim();
+  if (!/^\d{6}$/.test(oneTimeCode)) {
+    res.status(400).json({ error: "A valid 6-digit OTP is required" });
+    return;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const otpRow = db
+    .prepare(
+      "SELECT code_hash, attempts FROM registration_otp_tokens WHERE email = ? AND expires_at > ?"
+    )
+    .get(normalized, now) as { code_hash: string; attempts: number } | undefined;
+  if (!otpRow) {
+    res.status(400).json({ error: "OTP expired or not found. Request a new code." });
+    return;
+  }
+  if (otpRow.attempts >= 5) {
+    db.prepare("DELETE FROM registration_otp_tokens WHERE email = ?").run(normalized);
+    res.status(429).json({ error: "Too many invalid OTP attempts. Request a new code." });
+    return;
+  }
+  if (!bcrypt.compareSync(oneTimeCode, otpRow.code_hash)) {
+    db.prepare(
+      "UPDATE registration_otp_tokens SET attempts = attempts + 1 WHERE email = ?"
+    ).run(normalized);
+    res.status(400).json({ error: "Invalid OTP code" });
+    return;
+  }
+  db.prepare("DELETE FROM registration_otp_tokens WHERE email = ?").run(normalized);
 
   const result = register(email, password, name);
   if ("error" in result) {
@@ -33,6 +63,35 @@ router.post("/register", (req: Request, res: Response) => {
     console.error("[email] welcome:", err)
   );
   res.status(201).json(result);
+});
+
+router.post("/register/request-otp", async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    res.status(400).json({ error: "Valid email is required" });
+    return;
+  }
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(normalized) as
+    | { id: string }
+    | undefined;
+  if (existing) {
+    res.status(409).json({ error: "Email already registered" });
+    return;
+  }
+  const otpCode = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
+  const hashed = bcrypt.hashSync(otpCode, 10);
+  db.prepare("DELETE FROM registration_otp_tokens WHERE email = ?").run(normalized);
+  db.prepare(
+    "INSERT INTO registration_otp_tokens (email, code_hash, expires_at, attempts) VALUES (?, ?, ?, 0)"
+  ).run(normalized, hashed, expiresAt);
+  try {
+    await sendSignupOtpEmail(normalized, otpCode);
+  } catch (err) {
+    console.error("[email] signup otp:", err);
+  }
+  res.json({ ok: true, message: "OTP sent. Check your email inbox." });
 });
 
 router.post("/login", (req: Request, res: Response) => {

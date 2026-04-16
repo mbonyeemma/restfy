@@ -1,3 +1,150 @@
+function genId() {
+  return "id_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 9);
+}
+function escHtml(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
+function syntaxHighlight(json) {
+  if (json == null) return "";
+  const s = String(json);
+  let result = "";
+  let lastIndex = 0;
+  const re = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    result += escHtml(s.slice(lastIndex, m.index));
+    const match = m[0];
+    let cls = "json-number";
+    if (/^"/.test(match)) {
+      cls = /:$/.test(match) ? "json-key" : "json-string";
+    } else if (/true|false/.test(match)) {
+      cls = "json-bool";
+    } else if (/null/.test(match)) {
+      cls = "json-null";
+    }
+    result += '<span class="' + cls + '">' + escHtml(match) + "</span>";
+    lastIndex = re.lastIndex;
+  }
+  result += escHtml(s.slice(lastIndex));
+  return result;
+}
+function syntaxHighlightXml(xml) {
+  let out = escHtml(xml);
+  out = out.replace(/(&lt;\/?[\w:-]+)/g, '<span class="xml-tag">$1</span>');
+  out = out.replace(/([\w:-]+)(=)(&quot;[^&]*&quot;)/g, '<span class="xml-attr">$1</span>$2<span class="xml-value">$3</span>');
+  out = out.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="xml-comment">$1</span>');
+  return out;
+}
+function showNotif(msg, type = "info") {
+  const n = document.getElementById("notif");
+  if (!n) return;
+  n.textContent = msg;
+  n.className = "notif " + type;
+  setTimeout(() => n.classList.add("show"), 10);
+  setTimeout(() => n.classList.remove("show"), 2500);
+}
+navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+function appConfirm(title, message, opts) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("appDialogOverlay");
+    const titleEl = document.getElementById("appDialogTitle");
+    const bodyEl = document.getElementById("appDialogBody");
+    const footerEl = document.getElementById("appDialogFooter");
+    titleEl.textContent = title || "Confirm";
+    bodyEl.innerHTML = "";
+    bodyEl.textContent = message || "";
+    footerEl.innerHTML = "";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn-secondary";
+    cancelBtn.textContent = opts?.cancelLabel || "Cancel";
+    cancelBtn.onclick = () => {
+      overlay.classList.remove("open");
+      resolve(false);
+    };
+    const okBtn = document.createElement("button");
+    okBtn.className = opts?.danger ? "btn-danger" : "btn-primary";
+    okBtn.textContent = opts?.okLabel || "OK";
+    okBtn.onclick = () => {
+      overlay.classList.remove("open");
+      resolve(true);
+    };
+    footerEl.appendChild(cancelBtn);
+    footerEl.appendChild(okBtn);
+    overlay.classList.add("open");
+    okBtn.focus();
+    overlay.onkeydown = (e) => {
+      if (e.key === "Escape") {
+        overlay.classList.remove("open");
+        resolve(false);
+      }
+    };
+  });
+}
+function appPrompt(title, message, opts) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("appDialogOverlay");
+    const titleEl = document.getElementById("appDialogTitle");
+    const bodyEl = document.getElementById("appDialogBody");
+    const footerEl = document.getElementById("appDialogFooter");
+    titleEl.textContent = title || "";
+    bodyEl.innerHTML = "";
+    if (message) {
+      const p = document.createElement("div");
+      p.textContent = message;
+      bodyEl.appendChild(p);
+    }
+    const isTextarea = opts?.textarea;
+    const input = document.createElement(isTextarea ? "textarea" : "input");
+    input.className = isTextarea ? "app-dialog-textarea" : "app-dialog-input";
+    if (!isTextarea) {
+      input.type = opts?.inputType === "password" ? "password" : "text";
+    }
+    input.placeholder = opts?.placeholder || "";
+    input.value = opts?.defaultValue || "";
+    bodyEl.appendChild(input);
+    footerEl.innerHTML = "";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn-secondary";
+    cancelBtn.textContent = opts?.cancelLabel || "Cancel";
+    cancelBtn.onclick = () => {
+      overlay.classList.remove("open");
+      resolve(null);
+    };
+    const okBtn = document.createElement("button");
+    okBtn.className = "btn-primary";
+    okBtn.textContent = opts?.okLabel || "OK";
+    const submit = () => {
+      const val = input.value.trim();
+      if (!val && !opts?.allowEmpty) return;
+      overlay.classList.remove("open");
+      resolve(val);
+    };
+    okBtn.onclick = submit;
+    if (!isTextarea) input.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    };
+    footerEl.appendChild(cancelBtn);
+    footerEl.appendChild(okBtn);
+    overlay.classList.add("open");
+    input.focus();
+    if (!isTextarea && input.type !== "password") input.select();
+    overlay.onkeydown = (e) => {
+      if (e.key === "Escape") {
+        overlay.classList.remove("open");
+        resolve(null);
+      }
+    };
+  });
+}
 function esc(s) {
   return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : "";
 }
@@ -34,13 +181,13 @@ function allRequests(node, acc = []) {
 }
 function renderAuth(auth) {
   if (!auth?.type || auth.type === "none") return "";
-  if (auth.type === "bearer") return `<div class="auth-badge">🔒 <strong>Bearer Token</strong></div>`;
+  if (auth.type === "bearer") return `<div class="auth-badge"><strong>Bearer Token</strong></div>`;
   if (auth.type === "basic")
-    return `<div class="auth-badge">🔒 <strong>Basic Auth</strong>${auth.username ? ` — ${esc(auth.username)}` : ""}</div>`;
+    return `<div class="auth-badge"><strong>Basic Auth</strong>${auth.username ? ` — ${esc(auth.username)}` : ""}</div>`;
   if (auth.type === "apikey")
-    return `<div class="auth-badge">🔑 <strong>API Key</strong>${auth.key ? ` — ${esc(auth.key)} in ${esc(auth.in || "header")}` : ""}</div>`;
-  if (auth.type === "oauth2") return `<div class="auth-badge">🔐 <strong>OAuth 2.0</strong></div>`;
-  return `<div class="auth-badge">🔒 <strong>${esc(auth.type)}</strong></div>`;
+    return `<div class="auth-badge"><strong>API Key</strong>${auth.key ? ` — ${esc(auth.key)} in ${esc(auth.in || "header")}` : ""}</div>`;
+  if (auth.type === "oauth2") return `<div class="auth-badge"><strong>OAuth 2.0</strong></div>`;
+  return `<div class="auth-badge"><strong>${esc(auth.type)}</strong></div>`;
 }
 function langLabel(lang) {
   const labels = {
@@ -52,6 +199,8 @@ function langLabel(lang) {
   };
   return labels[lang] || lang;
 }
+const JSON_MARKER_START = "__RESTIFY_JSON_START__";
+const JSON_MARKER_END = "__RESTIFY_JSON_END__";
 function buildCodeSample(req, lang) {
   const m = req.method || "GET";
   let url = req.url || "";
@@ -67,13 +216,15 @@ function buildCodeSample(req, lang) {
   if (req.auth?.type === "bearer" && req.auth.token)
     hdrs.push({ key: "Authorization", value: "Bearer " + req.auth.token });
   const body = m !== "GET" && m !== "HEAD" && (req.bodyType === "json" || req.bodyType === "raw") && req.body ? req.body : "";
+  const isJsonBody = req.bodyType === "json" && !!body;
+  const markJsonSegment = (segment) => isJsonBody ? `${JSON_MARKER_START}${segment}${JSON_MARKER_END}` : segment;
   switch (lang) {
     case "curl": {
       const parts = [`curl -X ${m}`, `  '${url}'`];
       hdrs.forEach((h) => {
         parts.push(`  -H '${h.key}: ${h.value}'`);
       });
-      if (body) parts.push(`  -d '${body.replace(/'/g, "'\\''")}'`);
+      if (body) parts.push(`  -d '${markJsonSegment(body.replace(/'/g, "'\\''"))}'`);
       return parts.join(" \\\n");
     }
     case "javascript": {
@@ -98,7 +249,7 @@ console.log(data);`;
   },`;
         }
         if (body) s += `
-  body: JSON.stringify(${body}),`;
+  body: JSON.stringify(${markJsonSegment(body)}),`;
         s += `
 });
 const data = await response.json();
@@ -122,7 +273,7 @@ console.log(data);`;
 `;
       }
       if (body) {
-        s += `payload = ${body}
+        s += `payload = ${markJsonSegment(body)}
 
 `;
       }
@@ -157,7 +308,7 @@ curl_setopt_array($ch, [
     ],`;
       }
       if (body) s += `
-    CURLOPT_POSTFIELDS => '${body.replace(/'/g, "\\'")}',`;
+    CURLOPT_POSTFIELDS => '${markJsonSegment(body.replace(/'/g, "\\'"))}',`;
       s += `
 ]);
 
@@ -182,7 +333,7 @@ import (
 func main() {
 `;
       if (body) {
-        s += `	body := strings.NewReader(\`${body}\`)
+        s += `	body := strings.NewReader(\`${markJsonSegment(body)}\`)
 `;
         s += `	req, _ := http.NewRequest("${m}", "${url}", body)
 `;
@@ -206,6 +357,48 @@ func main() {
     default:
       return "";
   }
+}
+function formatMaybeJsonBody(body, forceJson = false) {
+  const raw = String(body || "");
+  if (!raw) return { html: "", isJson: false };
+  const trimmed = raw.trim();
+  if (!trimmed) return { html: esc(raw), isJson: false };
+  const shouldTryParse = forceJson || trimmed.startsWith("{") || trimmed.startsWith("[");
+  if (!shouldTryParse) return { html: esc(raw), isJson: false };
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2);
+    return { html: syntaxHighlight(pretty), isJson: true };
+  } catch {
+    return { html: esc(raw), isJson: false };
+  }
+}
+function renderCodeSampleHtml(sample) {
+  const src = String(sample || "");
+  if (!src.includes(JSON_MARKER_START) || !src.includes(JSON_MARKER_END)) {
+    return { html: esc(src), isJson: false };
+  }
+  let out = "";
+  let cursor = 0;
+  let hasJson = false;
+  while (cursor < src.length) {
+    const start = src.indexOf(JSON_MARKER_START, cursor);
+    if (start === -1) {
+      out += esc(src.slice(cursor));
+      break;
+    }
+    out += esc(src.slice(cursor, start));
+    const jsonStart = start + JSON_MARKER_START.length;
+    const end = src.indexOf(JSON_MARKER_END, jsonStart);
+    if (end === -1) {
+      out += esc(src.slice(start));
+      break;
+    }
+    const jsonFragment = src.slice(jsonStart, end);
+    out += syntaxHighlight(jsonFragment);
+    hasJson = true;
+    cursor = end + JSON_MARKER_END.length;
+  }
+  return { html: out, isJson: hasJson };
 }
 function renderEndpoint(req) {
   const m = req.method || "GET";
@@ -237,14 +430,8 @@ function renderEndpoint(req) {
   if (hasBody) {
     left += `<div class="section-label">Body <span style="text-transform:none;letter-spacing:0;font-weight:400">(${esc(req.bodyType)})</span></div>`;
     if (req.bodyType === "json" || req.bodyType === "raw" || req.bodyType === "graphql") {
-      let display = req.body || "";
-      if (req.bodyType === "json") {
-        try {
-          display = JSON.stringify(JSON.parse(display), null, 2);
-        } catch {
-        }
-      }
-      left += `<div class="code-block"><pre>${esc(display)}</pre></div>`;
+      const body = formatMaybeJsonBody(req.body || "", req.bodyType === "json");
+      left += `<div class="code-block${body.isJson ? " json-highlighted" : ""}"><pre>${body.html}</pre></div>`;
     } else if (req.bodyType === "form" || req.bodyType === "urlencoded") {
       const fields = (req.bodyForm || []).filter((f) => f.key);
       if (fields.length) {
@@ -265,9 +452,10 @@ function renderEndpoint(req) {
   });
   right += `</div>`;
   langs.forEach((lang, i) => {
-    right += `<div class="code-block" id="cb-${esc(epId)}-${lang}" style="${i > 0 ? "display:none" : ""}">
+    const sample = renderCodeSampleHtml(codeSamples[lang]);
+    right += `<div class="code-block${sample.isJson ? " json-highlighted" : ""}" id="cb-${esc(epId)}-${lang}" style="${i > 0 ? "display:none" : ""}">
       <div class="code-block-header"><span>${langLabel(lang)}</span><button class="copy-btn" onclick="copyBlock('cb-${esc(epId)}-${lang}')">Copy</button></div>
-      <pre>${esc(codeSamples[lang])}</pre>
+      <pre>${sample.html}</pre>
     </div>`;
   });
   right += `<div class="try-it" id="tryit-${esc(epId)}">
@@ -311,15 +499,19 @@ function buildDocsContentHtml(col, meta) {
     (children || []).forEach((child) => {
       if (child.type === "folder") {
         const auth = child.auth?.type && child.auth.type !== "none" && child.auth.type !== "inherit";
+        const fid = child.id;
         const fd = child.description ? `<div class="folder-desc">${esc(child.description)}</div>` : "";
-        html += `<div class="folder-section">
-          <div class="folder-header">
-            <span class="folder-icon">📁</span>
+        const childCount = (child.children || []).filter((c) => c.type === "request").length;
+        html += `<div class="folder-section open" id="fs-${esc(fid)}">
+          <div class="folder-header" onclick="toggleFolderSection('${esc(fid)}')">
+            <span class="folder-toggle"></span>
             <span class="folder-name">${esc(child.name)}</span>
+            <span class="folder-count">${childCount}</span>
             ${auth ? `<span class="folder-auth-badge">${esc(child.auth.type)}</span>` : ""}
-          </div>${fd}`;
+          </div>
+          <div class="folder-body">${fd}`;
         walkContent(child.children);
-        html += `</div>`;
+        html += `</div></div>`;
       } else if (child.type === "request") {
         html += renderEndpoint(child);
       }
@@ -327,12 +519,20 @@ function buildDocsContentHtml(col, meta) {
   }
   walkContent(col.children || []);
   if (reqs.length === 0) {
-    html += `<div class="error-wrap"><div class="error-icon">📭</div><div class="error-title">No endpoints</div><div class="error-sub">This collection has no requests yet.</div></div>`;
+    html += `<div class="error-wrap"><div class="error-title">No endpoints</div><div class="error-sub">This collection has no requests yet.</div></div>`;
   }
   return html;
 }
 export {
+  appConfirm as a,
   buildDocsContentHtml as b,
-  countAll as c,
-  esc as e
+  appPrompt as c,
+  syntaxHighlight as d,
+  escHtml as e,
+  syntaxHighlightXml as f,
+  genId as g,
+  formatBytes as h,
+  esc as i,
+  countAll as j,
+  showNotif as s
 };

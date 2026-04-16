@@ -2,7 +2,7 @@ import { getBodyEditorText } from './body-editor-cm'
 import { state, resolveVariables, getAncestorChain, getInheritedHeaders, getInheritedAuth, saveState, addToHistory } from './state'
 import { escHtml, formatBytes, syntaxHighlight, syntaxHighlightXml, showNotif } from './utils'
 import { runPreRequestScript, runTestScript } from './scripts'
-import { getKvStore, getAuthState, showResponsePlaceholder, switchResponseMode } from './ui'
+import { getKvStore, getAuthState, showResponsePlaceholder, switchResponseMode, addResponseSnapshot } from './ui'
 
 let _activeAbortController: AbortController | null = null
 let _requestElapsedTimer: ReturnType<typeof setInterval> | null = null
@@ -195,9 +195,11 @@ function showResponse(response: Response, text: string, elapsed: number, reqUrl:
   })
 
   ;(window as any)._lastResponse = text
-  if (state.activeTabId && state.tabData[state.activeTabId]) {
-    ;(state.tabData[state.activeTabId] as any).response = { statusHtml, meta, bodyHtml, bodyRaw: text, headersHtml, cookiesHtml }
-  }
+  addResponseSnapshot({
+    statusHtml, meta, bodyHtml, bodyRaw: text, headersHtml, cookiesHtml,
+    statusCode: response.status,
+    label: `${reqMethod || 'GET'} ${response.status} • ${new Date().toLocaleTimeString()}`,
+  }, true)
   addToHistory({ method: reqMethod || 'GET', url: reqUrl || '', status: response.status, time: elapsed, size })
   saveState()
 }

@@ -1,4 +1,4 @@
-import { b as buildDocsContentHtml } from "./published-docs-html-Dy1vaC6o.js";
+import { g as genId, e as escHtml, b as buildDocsContentHtml, s as showNotif, a as appConfirm, c as appPrompt, d as syntaxHighlight, f as syntaxHighlightXml, h as formatBytes } from "./published-docs-html-Cm_jmT7Y.js";
 function initConfigDomains() {
   if (typeof window === "undefined" || !window.location) return;
   const h = String(window.location.hostname || "").toLowerCase();
@@ -34,153 +34,6 @@ function initApiBase() {
     }
     return fetch(url, opts);
   };
-}
-function genId() {
-  return "id_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 9);
-}
-function escHtml(str) {
-  if (!str) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function formatBytes(bytes) {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / 1048576).toFixed(1) + " MB";
-}
-function syntaxHighlight(json2) {
-  if (json2 == null) return "";
-  const s = String(json2);
-  let result = "";
-  let lastIndex = 0;
-  const re = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
-  let m;
-  while ((m = re.exec(s)) !== null) {
-    result += escHtml(s.slice(lastIndex, m.index));
-    const match = m[0];
-    let cls = "json-number";
-    if (/^"/.test(match)) {
-      cls = /:$/.test(match) ? "json-key" : "json-string";
-    } else if (/true|false/.test(match)) {
-      cls = "json-bool";
-    } else if (/null/.test(match)) {
-      cls = "json-null";
-    }
-    result += '<span class="' + cls + '">' + escHtml(match) + "</span>";
-    lastIndex = re.lastIndex;
-  }
-  result += escHtml(s.slice(lastIndex));
-  return result;
-}
-function syntaxHighlightXml(xml) {
-  let out = escHtml(xml);
-  out = out.replace(/(&lt;\/?[\w:-]+)/g, '<span class="xml-tag">$1</span>');
-  out = out.replace(/([\w:-]+)(=)(&quot;[^&]*&quot;)/g, '<span class="xml-attr">$1</span>$2<span class="xml-value">$3</span>');
-  out = out.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="xml-comment">$1</span>');
-  return out;
-}
-function showNotif(msg, type = "info") {
-  const n = document.getElementById("notif");
-  if (!n) return;
-  n.textContent = msg;
-  n.className = "notif " + type;
-  setTimeout(() => n.classList.add("show"), 10);
-  setTimeout(() => n.classList.remove("show"), 2500);
-}
-navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-function appConfirm(title, message, opts) {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById("appDialogOverlay");
-    const titleEl = document.getElementById("appDialogTitle");
-    const bodyEl = document.getElementById("appDialogBody");
-    const footerEl = document.getElementById("appDialogFooter");
-    titleEl.textContent = title || "Confirm";
-    bodyEl.innerHTML = "";
-    bodyEl.textContent = message || "";
-    footerEl.innerHTML = "";
-    const cancelBtn = document.createElement("button");
-    cancelBtn.className = "btn-secondary";
-    cancelBtn.textContent = opts?.cancelLabel || "Cancel";
-    cancelBtn.onclick = () => {
-      overlay.classList.remove("open");
-      resolve(false);
-    };
-    const okBtn = document.createElement("button");
-    okBtn.className = opts?.danger ? "btn-danger" : "btn-primary";
-    okBtn.textContent = opts?.okLabel || "OK";
-    okBtn.onclick = () => {
-      overlay.classList.remove("open");
-      resolve(true);
-    };
-    footerEl.appendChild(cancelBtn);
-    footerEl.appendChild(okBtn);
-    overlay.classList.add("open");
-    okBtn.focus();
-    overlay.onkeydown = (e) => {
-      if (e.key === "Escape") {
-        overlay.classList.remove("open");
-        resolve(false);
-      }
-    };
-  });
-}
-function appPrompt(title, message, opts) {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById("appDialogOverlay");
-    const titleEl = document.getElementById("appDialogTitle");
-    const bodyEl = document.getElementById("appDialogBody");
-    const footerEl = document.getElementById("appDialogFooter");
-    titleEl.textContent = title || "";
-    bodyEl.innerHTML = "";
-    if (message) {
-      const p = document.createElement("div");
-      p.textContent = message;
-      bodyEl.appendChild(p);
-    }
-    const isTextarea = opts?.textarea;
-    const input = document.createElement(isTextarea ? "textarea" : "input");
-    input.className = isTextarea ? "app-dialog-textarea" : "app-dialog-input";
-    if (!isTextarea) {
-      input.type = opts?.inputType === "password" ? "password" : "text";
-    }
-    input.placeholder = opts?.placeholder || "";
-    input.value = opts?.defaultValue || "";
-    bodyEl.appendChild(input);
-    footerEl.innerHTML = "";
-    const cancelBtn = document.createElement("button");
-    cancelBtn.className = "btn-secondary";
-    cancelBtn.textContent = opts?.cancelLabel || "Cancel";
-    cancelBtn.onclick = () => {
-      overlay.classList.remove("open");
-      resolve(null);
-    };
-    const okBtn = document.createElement("button");
-    okBtn.className = "btn-primary";
-    okBtn.textContent = opts?.okLabel || "OK";
-    const submit = () => {
-      const val = input.value.trim();
-      if (!val && !opts?.allowEmpty) return;
-      overlay.classList.remove("open");
-      resolve(val);
-    };
-    okBtn.onclick = submit;
-    if (!isTextarea) input.onkeydown = (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
-      }
-    };
-    footerEl.appendChild(cancelBtn);
-    footerEl.appendChild(okBtn);
-    overlay.classList.add("open");
-    input.focus();
-    if (!isTextarea && input.type !== "password") input.select();
-    overlay.onkeydown = (e) => {
-      if (e.key === "Escape") {
-        overlay.classList.remove("open");
-        resolve(null);
-      }
-    };
-  });
 }
 const state = {
   collections: [],
@@ -373,6 +226,64 @@ function reorderAmongSiblings(dragId, targetId, placeAfter) {
   arr.splice(to, 0, item);
   return true;
 }
+function isDescendantOf(nodeId, ancestorId) {
+  const ancestor = findNodeInAll(ancestorId);
+  if (!ancestor || !ancestor.children) return false;
+  return !!findNodeById(nodeId, ancestor.children);
+}
+function removeNodeFromTree(nodeId) {
+  const colIdx = state.collections.findIndex((c) => c.id === nodeId);
+  if (colIdx !== -1) return state.collections.splice(colIdx, 1)[0];
+  const parent = findParentInAll(nodeId);
+  if (parent && parent.children) {
+    const idx = parent.children.findIndex((c) => c.id === nodeId);
+    if (idx !== -1) return parent.children.splice(idx, 1)[0];
+  }
+  return null;
+}
+function insertNodeAt(node, targetId, position) {
+  if (position === "inside") {
+    const target = findNodeInAll(targetId);
+    if (!target || !target.children) return false;
+    target.children.push(node);
+    return true;
+  }
+  const colIdx = state.collections.findIndex((c) => c.id === targetId);
+  if (colIdx !== -1) {
+    const pos = position === "after" ? colIdx + 1 : colIdx;
+    state.collections.splice(pos, 0, node);
+    return true;
+  }
+  const parent = findParentInAll(targetId);
+  if (!parent || !parent.children) return false;
+  const idx = parent.children.findIndex((c) => c.id === targetId);
+  if (idx === -1) return false;
+  parent.children.splice(position === "after" ? idx + 1 : idx, 0, node);
+  return true;
+}
+function crossParentMove(dragId, targetId, position) {
+  if (dragId === targetId) return false;
+  const dragNode = findNodeInAll(dragId);
+  if (!dragNode) return false;
+  if (dragNode.type === "collection") {
+    if (position === "inside") return false;
+    const targetNode = findNodeInAll(targetId);
+    if (!targetNode || targetNode.type !== "collection") return false;
+    return reorderAmongSiblings(dragId, targetId, position === "after");
+  }
+  if (isDescendantOf(targetId, dragId)) return false;
+  if (position === "inside") {
+    const target = findNodeInAll(targetId);
+    if (!target || !target.children) return false;
+  }
+  const removed = removeNodeFromTree(dragId);
+  if (!removed) return false;
+  if (!insertNodeAt(removed, targetId, position)) {
+    state.collections.push(removed);
+    return false;
+  }
+  return true;
+}
 let _diskPersistTimer = null;
 function buildStateObject() {
   const data = {
@@ -407,7 +318,10 @@ function buildStateObject() {
       auth: d.auth,
       preRequestScript: d.preRequestScript || "",
       testScript: d.testScript || "",
-      pinned: d.pinned || false
+      pinned: d.pinned || false,
+      response: d.response || null,
+      responses: d.responses || [],
+      activeResponseId: d.activeResponseId || ""
     };
   }
   return data;
@@ -450,6 +364,27 @@ function saveState(opts) {
       scheduleDiskPersist(json2);
     }
   }
+}
+function clearLocalWorkspaceAndPersist() {
+  state.collections.length = 0;
+  state.environments.length = 0;
+  state.activeEnvId = null;
+  state.globalVars.length = 0;
+  state.history.length = 0;
+  state.tabs.length = 0;
+  state.activeTabId = null;
+  state.tabData = {};
+  state.openFolders.clear();
+  state.pendingImport = null;
+  state.editingNodeId = null;
+  state.sidebarMode = "collections";
+  state.currentBodyType = "none";
+  try {
+    localStorage.removeItem(LS_DATA);
+    localStorage.removeItem(LS_DATA_LEGACY);
+  } catch (_) {
+  }
+  saveState({ forceDisk: true });
 }
 function applyStateFromData(d) {
   if (!d) return;
@@ -896,20 +831,24 @@ function setMainView(view2) {
   });
 }
 const previewCss = `:root {
---bg-page: #0f0f0f;
---bg-sidebar: #141414;
+--bg-page: #111111;
+--bg-sidebar: #151515;
 --bg-card: #1a1a1a;
---bg-code: #0d0d0d;
---bg-hover: #1f1f1f;
---bg-input: #1a1a1a;
---border: #262626;
---border-light: #333;
---text-primary: #f0f0f0;
---text-secondary: #999;
---text-dim: #555;
+--bg-code: #121212;
+--bg-hover: #202020;
+--bg-input: #1b1b1b;
+--border: #2e2e2e;
+--border-light: #3a3a3a;
+--text-primary: #f2f2f2;
+--text-secondary: #b5b5b5;
+--text-dim: #8a8a8a;
 --accent: #ef5c35;
---accent-hover: #f06e4a;
---accent-glow: rgba(239,92,53,.1);
+--accent-hover: #e04a25;
+--accent-glow: rgba(239,92,53,.14);
+--surface-accent: #1f1f1f;
+--surface-header: #1b1b1b;
+--surface-panel: #171717;
+--accent-border: #6a3a2d;
 --green: #3dd68c;   --green-bg: rgba(61,214,140,.12);
 --red: #f56565;     --red-bg: rgba(245,101,101,.12);
 --yellow: #f6c90e;  --yellow-bg: rgba(246,201,14,.12);
@@ -917,25 +856,34 @@ const previewCss = `:root {
 --purple: #a78bfa;  --purple-bg: rgba(167,139,250,.12);
 --cyan: #22d3ee;    --cyan-bg: rgba(34,211,238,.12);
 --orange: #fb923c;  --orange-bg: rgba(251,146,60,.12);
+--json-key: #7dd3fc;
+--json-string: #86efac;
+--json-number: #fca5a5;
+--json-bool: #c4b5fd;
+--json-null: #fcd34d;
 --sidebar-w: 280px;
 --topbar-h: 56px;
 --radius: 8px;
 }
 [data-theme="light"] {
---bg-page: #fafafa;
+--bg-page: #f6f6f6;
 --bg-sidebar: #fff;
 --bg-card: #fff;
 --bg-code: #f5f5f5;
---bg-hover: #f0f0f0;
+--bg-hover: #efefef;
 --bg-input: #fff;
---border: #e5e5e5;
---border-light: #eee;
---text-primary: #111;
---text-secondary: #555;
---text-dim: #999;
+--border: #e2e2e2;
+--border-light: #ececec;
+--text-primary: #121212;
+--text-secondary: #4e4e4e;
+--text-dim: #888;
 --accent: #ef5c35;
 --accent-hover: #e04a25;
---accent-glow: rgba(239,92,53,.06);
+--accent-glow: rgba(239,92,53,.1);
+--surface-accent: #f3f3f3;
+--surface-header: #f7f7f7;
+--surface-panel: #f8f8f8;
+--accent-border: #f2b7a6;
 --green: #16a34a;   --green-bg: rgba(22,163,74,.08);
 --red: #dc2626;     --red-bg: rgba(220,38,38,.08);
 --yellow: #ca8a04;  --yellow-bg: rgba(202,138,4,.08);
@@ -943,9 +891,14 @@ const previewCss = `:root {
 --purple: #7c3aed;  --purple-bg: rgba(124,58,237,.08);
 --cyan: #0891b2;    --cyan-bg: rgba(8,145,178,.08);
 --orange: #ea580c;  --orange-bg: rgba(234,88,12,.08);
+--json-key: #1d4ed8;
+--json-string: #15803d;
+--json-number: #b91c1c;
+--json-bool: #7c3aed;
+--json-null: #a16207;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--bg-page);color:var(--text-primary);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+*{box-sizing:border-box;margin:0;padding:0;text-shadow:none;box-shadow:none}
+body{font-family:'Inter',sans-serif;background:var(--bg-page);color:var(--text-primary);height:100vh;overflow:hidden;display:flex;flex-direction:column;line-height:1.5}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 button{font-family:'Inter',sans-serif;cursor:pointer}
@@ -960,15 +913,15 @@ code,pre{font-family:'JetBrains Mono',monospace}
 .topbar{height:var(--topbar-h);background:var(--bg-sidebar);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0;z-index:100}
 .topbar-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
 .topbar-brand:hover{text-decoration:none}
-.topbar-logo{width:28px;height:28px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:14px;letter-spacing:-1px;flex-shrink:0}
-.topbar-site{font-size:14px;font-weight:600;color:var(--text-secondary)}
+.topbar-logo{width:28px;height:28px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;letter-spacing:-.5px;flex-shrink:0}
+.topbar-site{font-size:14px;font-weight:500;color:var(--text-secondary)}
 .topbar-divider{width:1px;height:24px;background:var(--border);flex-shrink:0}
-.topbar-title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar-title{font-size:15px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topbar-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);flex-shrink:0}
 .topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .btn-icon{background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--text-secondary);font-size:16px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .btn-icon:hover{border-color:var(--accent);color:var(--accent)}
-.btn-open{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:12px;font-weight:600;transition:background .15s}
+.btn-open{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:12px;font-weight:500;transition:background .15s}
 .btn-open:hover{background:var(--accent-hover);text-decoration:none}
 
 /* ── LAYOUT ── */
@@ -977,24 +930,24 @@ code,pre{font-family:'JetBrains Mono',monospace}
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sidebar-w);background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .sidebar-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sidebar-collection{font-size:14px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
+.sidebar-collection{font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
 .sidebar-count{font-size:11px;color:var(--text-dim)}
 .sidebar-search-wrap{padding:10px 14px;flex-shrink:0}
-.sidebar-search{width:100%;padding:8px 12px 8px 32px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-primary);outline:none;font-family:'Inter',sans-serif;transition:border-color .15s}
+.sidebar-search{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-primary);outline:none;font-family:'Inter',sans-serif;transition:border-color .15s}
 .sidebar-search:focus{border-color:var(--accent)}
 .sidebar-search::placeholder{color:var(--text-dim)}
 .sidebar-search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-dim);pointer-events:none}
 .sidebar-nav{flex:1;overflow-y:auto;padding:4px 8px 16px}
-.sidebar-folder{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;user-select:none;font-size:12px;font-weight:600;color:var(--text-secondary);letter-spacing:.2px;border-radius:6px;margin:1px 0;transition:background .1s}
+.sidebar-folder{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;user-select:none;font-size:12px;font-weight:500;color:var(--text-secondary);letter-spacing:.2px;border-radius:6px;margin:1px 0;transition:background .1s}
 .sidebar-folder:hover{background:var(--bg-hover)}
 .sidebar-folder-arrow{font-size:9px;color:var(--text-dim);transition:transform .15s;flex-shrink:0}
 .sidebar-folder-arrow.open{transform:rotate(90deg)}
 .sidebar-folder-count{font-size:10px;color:var(--text-dim);background:var(--bg-hover);padding:1px 6px;border-radius:10px;margin-left:auto}
 .sidebar-item{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 28px;cursor:pointer;font-size:12px;color:var(--text-secondary);transition:all .12s;border-radius:6px;margin:1px 0;border-left:2px solid transparent}
 .sidebar-item:hover{background:var(--bg-hover);color:var(--text-primary)}
-.sidebar-item.active{background:var(--accent-glow);color:var(--text-primary);border-left-color:var(--accent)}
+.sidebar-item.active{background:var(--accent-glow);color:var(--accent);border-left-color:var(--accent)}
 .sidebar-item.root-level{padding-left:10px}
-.m-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;min-width:38px;text-align:center;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.m-badge{font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;min-width:38px;text-align:center;font-family:'JetBrains Mono',monospace;flex-shrink:0}
 .m-GET{color:var(--green);background:var(--green-bg)}
 .m-POST{color:var(--yellow);background:var(--yellow-bg)}
 .m-PUT{color:var(--blue);background:var(--blue-bg)}
@@ -1006,52 +959,58 @@ code,pre{font-family:'JetBrains Mono',monospace}
 /* ── DOCS CONTENT ── */
 .docs-content{flex:1;overflow-y:auto;padding:0;scroll-behavior:smooth}
 
-.collection-hero{padding:40px 48px 36px;border-bottom:1px solid var(--border);background:linear-gradient(180deg, var(--bg-sidebar) 0%, var(--bg-page) 100%)}
-.collection-name{font-size:30px;font-weight:800;letter-spacing:-.3px;line-height:1.2;margin-bottom:10px}
+.collection-hero{padding:40px 48px 36px;border-bottom:1px solid var(--border);background:linear-gradient(180deg, var(--surface-header) 0%, var(--bg-page) 100%)}
+.collection-name{font-size:28px;font-weight:500;letter-spacing:-.2px;line-height:1.2;margin-bottom:10px}
 .collection-desc{font-size:14px;color:var(--text-secondary);line-height:1.8;white-space:pre-wrap;max-width:680px}
 .collection-stats{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
-.stat-chip{font-size:11px;color:var(--text-dim);background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:4px 14px;display:flex;align-items:center;gap:5px}
-.stat-chip strong{color:var(--text-secondary)}
+.stat-chip{font-size:11px;color:var(--text-dim);background:var(--surface-accent);border:1px solid var(--border);border-radius:20px;padding:4px 14px;display:flex;align-items:center;gap:5px}
+.stat-chip strong{color:var(--text-primary);font-weight:600}
 
 .base-url-bar{padding:14px 48px;border-bottom:1px solid var(--border);background:var(--bg-card)}
-.base-url-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:6px}
+.base-url-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:6px}
 .base-url{font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--text-secondary);background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .base-url span{flex:1;overflow-x:auto;white-space:nowrap}
 
 .intro-auth{padding:16px 48px;border-bottom:1px solid var(--border);background:var(--bg-card)}
-.intro-auth-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:8px}
+.intro-auth-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:8px}
 
 .folder-section{border-bottom:1px solid var(--border)}
-.folder-header{padding:18px 48px 14px;background:var(--bg-sidebar);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)}
+.folder-header{padding:16px 48px;background:var(--surface-header);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .12s}
+.folder-header:hover{background:var(--bg-hover)}
+.folder-toggle{width:16px;height:16px;flex-shrink:0;position:relative}
+.folder-toggle::before{content:'';position:absolute;top:4px;left:5px;width:5px;height:5px;border-right:1.5px solid var(--text-dim);border-bottom:1.5px solid var(--text-dim);transform:rotate(-45deg);transition:transform .15s}
+.folder-section.open .folder-toggle::before{transform:rotate(45deg);top:3px}
+.folder-body{overflow:hidden;transition:none}
+.folder-section:not(.open) .folder-body{display:none}
 .folder-desc{padding:0 48px 14px;font-size:13px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;border-bottom:1px solid var(--border)}
-.folder-icon{font-size:16px}
-.folder-name{font-size:16px;font-weight:700}
-.folder-auth-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-left:8px}
+.folder-name{font-size:15px;font-weight:500;flex:1}
+.folder-count{font-size:11px;color:var(--text-dim);background:var(--bg-hover);padding:1px 8px;border-radius:10px}
+.folder-auth-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px}
 
 /* ── ENDPOINT CARD ── */
 .endpoint{border-bottom:1px solid var(--border)}
 .endpoint-row{display:flex;gap:0;min-height:0}
 .ep-left{flex:1;padding:28px 48px;border-right:1px solid var(--border);min-width:0}
-.ep-right{width:420px;flex-shrink:0;padding:28px 24px;background:var(--bg-code);overflow-y:auto}
+.ep-right{width:420px;flex-shrink:0;padding:28px 24px;background:var(--surface-panel);overflow-y:auto}
 
 .ep-headline{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-.ep-method{font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;font-family:'JetBrains Mono',monospace;letter-spacing:.3px}
-.ep-name{font-size:18px;font-weight:700}
+.ep-method{font-size:11px;font-weight:600;padding:4px 12px;border-radius:5px;font-family:'JetBrains Mono',monospace;letter-spacing:.2px}
+.ep-name{font-size:17px;font-weight:500}
 .ep-desc{font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.8;white-space:pre-wrap}
 .ep-url{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;margin:12px 0 18px;word-break:break-all;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ep-url span{flex:1;color:var(--text-secondary)}
 .copy-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-dim);font-size:10px;padding:3px 9px;transition:all .12s;white-space:nowrap;font-family:'Inter',sans-serif}
 .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
 
-.section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin:20px 0 10px;display:flex;align-items:center;gap:6px}
 .params-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px}
-.params-table th{text-align:left;padding:8px 12px;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg-hover)}
+.params-table th{text-align:left;padding:8px 12px;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--surface-accent)}
 .params-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-secondary);vertical-align:top}
 .params-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-primary);font-weight:500}
 .params-table tr:last-child td{border-bottom:none}
 
-.auth-badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;margin-bottom:4px}
-.auth-badge strong{color:var(--text-primary)}
+.auth-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;margin-bottom:4px}
+.auth-badge strong{color:var(--text-primary);font-weight:500}
 
 /* ── CODE PANEL (right side) ── */
 .code-tabs{display:flex;gap:2px;margin-bottom:12px;flex-wrap:wrap}
@@ -1059,14 +1018,19 @@ code,pre{font-family:'JetBrains Mono',monospace}
 .code-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .code-tab:hover:not(.active){border-color:var(--accent);color:var(--accent)}
 .code-block{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);position:relative;overflow:hidden;margin-bottom:16px}
-.code-block-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.code-block-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-hover);border-bottom:1px solid var(--border);font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:500}
 .code-block pre{padding:14px 16px;font-size:11px;line-height:1.7;overflow-x:auto;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}
+.json-highlighted .json-key{color:var(--json-key)}
+.json-highlighted .json-string{color:var(--json-string)}
+.json-highlighted .json-number{color:var(--json-number)}
+.json-highlighted .json-bool{color:var(--json-bool)}
+.json-highlighted .json-null{color:var(--json-null)}
 
 /* ── TRY IT ── */
 .try-it{margin-top:16px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.try-it-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
-.try-it-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim)}
-.try-it-btn{padding:4px 12px;background:var(--accent);border:none;border-radius:5px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s;font-family:'Inter',sans-serif}
+.try-it-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-hover);border-bottom:1px solid var(--border)}
+.try-it-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim)}
+.try-it-btn{padding:4px 12px;background:var(--accent);border:none;border-radius:5px;color:#fff;font-size:11px;font-weight:500;cursor:pointer;transition:background .12s;font-family:'Inter',sans-serif}
 .try-it-btn:hover{background:var(--accent-hover)}
 .try-it-btn:disabled{opacity:.5;cursor:default}
 .try-it-body{padding:12px}
@@ -1075,8 +1039,8 @@ code,pre{font-family:'JetBrains Mono',monospace}
 .try-it-textarea{width:100%;min-height:80px;resize:vertical;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:12px;font-family:'JetBrains Mono',monospace;outline:none;margin-bottom:8px;transition:border-color .12s}
 .try-it-textarea:focus{border-color:var(--accent)}
 .try-it-response{margin-top:8px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.try-it-resp-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:11px}
-.try-it-resp-status{font-weight:700;font-family:'JetBrains Mono',monospace}
+.try-it-resp-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-hover);border-bottom:1px solid var(--border);font-size:11px}
+.try-it-resp-status{font-weight:600;font-family:'JetBrains Mono',monospace}
 .try-it-resp-status.s2xx{color:var(--green)}
 .try-it-resp-status.s4xx{color:var(--yellow)}
 .try-it-resp-status.s5xx{color:var(--red)}
@@ -1088,8 +1052,8 @@ code,pre{font-family:'JetBrains Mono',monospace}
 .spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .error-wrap{padding:80px 48px;text-align:center}
-.error-icon{font-size:56px;opacity:.2;margin-bottom:16px}
-.error-title{font-size:18px;font-weight:600;margin-bottom:8px}
+.error-icon{display:none}
+.error-title{font-size:17px;font-weight:500;margin-bottom:8px}
 .error-sub{font-size:13px;color:var(--text-dim);max-width:420px;margin:0 auto;line-height:1.6}
 
 /* ── RESPONSIVE ── */
@@ -1124,6 +1088,49 @@ function esc(s) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
     : ''
+}
+
+function syntaxHighlight(json) {
+  if (json == null) return ''
+  const s = String(json)
+  let result = ''
+  let lastIndex = 0
+  const re = /("(\\\\u[a-zA-Z0-9]{4}|\\\\[^u]|[^\\\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    result += esc(s.slice(lastIndex, m.index))
+    const match = m[0]
+    let cls = 'json-number'
+    if (/^"/.test(match)) {
+      cls = /:$/.test(match) ? 'json-key' : 'json-string'
+    } else if (/true|false/.test(match)) {
+      cls = 'json-bool'
+    } else if (/null/.test(match)) {
+      cls = 'json-null'
+    }
+    result += '<span class="' + cls + '">' + esc(match) + '</span>'
+    lastIndex = re.lastIndex
+  }
+  result += esc(s.slice(lastIndex))
+  return result
+}
+
+function formatMaybeJson(raw) {
+  const text = String(raw || '')
+  const trimmed = text.trim()
+  if (!trimmed) return { html: esc(text), isJson: false }
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return { html: esc(text), isJson: false }
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2)
+    return { html: syntaxHighlight(pretty), isJson: true }
+  } catch (e) {
+    return { html: esc(text), isJson: false }
+  }
+}
+
+window.toggleFolderSection = function (fid) {
+  var el = document.getElementById('fs-' + fid)
+  if (el) el.classList.toggle('open')
 }
 
 window.switchCodeTab = function (epId, lang) {
@@ -1164,10 +1171,7 @@ window.sendTryIt = async function (epId, method, _origUrl) {
     const resp = await fetch(url, opts)
     const elapsed = Math.round(performance.now() - start)
     const text = await resp.text()
-    let display = text
-    try {
-      display = JSON.stringify(JSON.parse(text), null, 2)
-    } catch (e) {}
+    const formatted = formatMaybeJson(text)
 
     const statusClass = resp.status < 300 ? 's2xx' : resp.status < 500 ? 's4xx' : 's5xx'
     resultDiv.innerHTML =
@@ -1187,10 +1191,12 @@ window.sendTryIt = async function (epId, method, _origUrl) {
       epId +
       '\\').textContent)">Copy</button>' +
       '</div>' +
-      '<div class="try-it-resp-body" id="tryit-resp-body-' +
+      '<div class="try-it-resp-body' +
+      (formatted.isJson ? ' json-highlighted' : '') +
+      '" id="tryit-resp-body-' +
       epId +
       '">' +
-      esc(display) +
+      formatted.html +
       '</div>' +
       '</div>'
   } catch (err) {
@@ -25549,9 +25555,20 @@ function refreshBodyEditor(mode, doc2) {
 let _collectionTreeFilter = "";
 let _treeDragActiveId = null;
 function clearTreeDropTargetClasses() {
-  document.querySelectorAll(".tree-drop-target, .tree-drop-after").forEach((el) => {
-    el.classList.remove("tree-drop-target", "tree-drop-after");
+  document.querySelectorAll(".tree-drop-target, .tree-drop-after, .tree-drop-inside").forEach((el) => {
+    el.classList.remove("tree-drop-target", "tree-drop-after", "tree-drop-inside");
   });
+}
+function getDropPosition(e, rowEl, isContainer) {
+  const rect = rowEl.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const h = rect.height;
+  if (isContainer) {
+    if (y < h * 0.25) return "before";
+    if (y > h * 0.75) return "after";
+    return "inside";
+  }
+  return y < h / 2 ? "before" : "after";
 }
 function bindTreeRowDnD(rowEl, nodeId) {
   if (_collectionTreeFilter) {
@@ -25577,29 +25594,34 @@ function bindTreeRowDnD(rowEl, nodeId) {
   };
   rowEl.ondragover = (e) => {
     if (!_treeDragActiveId || _treeDragActiveId === nodeId) return;
-    const arrA = getSiblingArrayForNode(_treeDragActiveId);
-    const arrB = getSiblingArrayForNode(nodeId);
-    if (!arrA || arrA !== arrB) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    const rect = rowEl.getBoundingClientRect();
-    const after = e.clientY > rect.top + rect.height / 2;
+    const isContainer = rowEl.classList.contains("tree-folder-header");
+    const pos = getDropPosition(e, rowEl, isContainer);
     clearTreeDropTargetClasses();
     rowEl.classList.add("tree-drop-target");
-    if (after) rowEl.classList.add("tree-drop-after");
+    if (pos === "after") rowEl.classList.add("tree-drop-after");
+    else if (pos === "inside") rowEl.classList.add("tree-drop-inside");
   };
   rowEl.ondragleave = (e) => {
-    if (!rowEl.contains(e.relatedTarget)) rowEl.classList.remove("tree-drop-target", "tree-drop-after");
+    if (!rowEl.contains(e.relatedTarget)) rowEl.classList.remove("tree-drop-target", "tree-drop-after", "tree-drop-inside");
   };
   rowEl.ondrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     const dragId = e.dataTransfer.getData("text/plain");
-    rowEl.classList.remove("tree-drop-target", "tree-drop-after");
+    rowEl.classList.remove("tree-drop-target", "tree-drop-after", "tree-drop-inside");
     if (!dragId || dragId === nodeId) return;
-    const rect = rowEl.getBoundingClientRect();
-    const placeAfter = e.clientY > rect.top + rect.height / 2;
-    if (reorderAmongSiblings(dragId, nodeId, placeAfter)) {
+    const isContainer = rowEl.classList.contains("tree-folder-header");
+    const pos = getDropPosition(e, rowEl, isContainer);
+    const sameSiblings = getSiblingArrayForNode(dragId) === getSiblingArrayForNode(nodeId) && pos !== "inside";
+    let ok = false;
+    if (sameSiblings) {
+      ok = reorderAmongSiblings(dragId, nodeId, pos === "after");
+    } else {
+      ok = crossParentMove(dragId, nodeId, pos);
+    }
+    if (ok) {
       saveState();
       const sb = document.querySelector(".sidebar-search");
       renderSidebar(sb ? sb.value : "");
@@ -25700,7 +25722,7 @@ function loadTabState(id) {
   renderKvEditor("bodyFormEditor", d.bodyForm, "bodyForm");
   const bodyContent = d.body ?? "";
   document.getElementById("bodyTextarea").value = bodyContent;
-  const bt = d.bodyType || "none";
+  const bt = d.bodyType && d.bodyType !== "none" && d.bodyType !== "raw" ? d.bodyType : "json";
   setBodyType(bt, null, true);
   if (bt === "json" || bt === "raw") {
     refreshBodyEditor(bt === "json" ? "json" : "raw", bodyContent);
@@ -25716,9 +25738,11 @@ function loadTabState(id) {
   if (prs) prs.value = d.preRequestScript || "";
   const ts = document.getElementById("testScriptEditor");
   if (ts) ts.value = d.testScript || "";
-  if (d.response) restoreResponse(d.response);
+  const activeSaved = d.activeResponseId ? (d.responses || []).find((r) => r.id === d.activeResponseId) : null;
+  if (activeSaved) restoreResponse(activeSaved);
+  else if (d.response) restoreResponse(d.response);
   else showResponsePlaceholder();
-  switchReqTab(t2.sourceId ? "body" : "params");
+  switchReqTab("body");
 }
 function renderTabs() {
   const bar = document.getElementById("tabsBar");
@@ -26187,7 +26211,7 @@ function renderFolderEditor(node) {
   const titleEl = document.getElementById("folderEditorTitle");
   const iconEl = document.getElementById("folderEditorIcon");
   if (titleEl) titleEl.textContent = node.name;
-  if (iconEl) iconEl.textContent = node.type === "collection" ? "📦" : "📁";
+  if (iconEl) iconEl.textContent = "";
   renderKvEditor("folderHeadersEditor", node.headers || [], "folderHeaders");
   document.getElementById("folderAuthType").value = node.auth?.type || "none";
   updateFolderAuthFields(node.auth);
@@ -26610,18 +26634,91 @@ function showEmpty() {
 }
 function updateMethodColor() {
   const sel = document.getElementById("methodSelect");
-  const method = sel.value;
+  const method = (sel.value || "GET").toUpperCase();
   sel.className = "method-select m-" + method;
   const urlInput = document.getElementById("urlInput");
   if (urlInput) urlInput.className = "url-input method-border-" + method;
   const t2 = state.tabs.find((t22) => t22.id === state.activeTabId);
   if (t2) {
     t2.method = method;
+    if (t2.sourceId) {
+      const source = findNodeInAll(t2.sourceId);
+      if (source && source.type === "request" && source.method !== method) {
+        source.method = method;
+        if (state.sidebarMode === "collections") renderSidebar();
+        saveState();
+      }
+    }
     renderTabs();
   }
 }
 function copyResponse() {
   if (window._lastResponse) navigator.clipboard.writeText(window._lastResponse).then(() => showNotif("Copied!", "success"));
+}
+function formatResponseSnapshotLabel(snapshot, idx) {
+  if (snapshot?.label) return snapshot.label;
+  const ts = snapshot?.createdAt ? new Date(snapshot.createdAt).toLocaleTimeString() : `#${idx + 1}`;
+  const status = snapshot?.statusCode ? ` ${snapshot.statusCode}` : "";
+  return `${ts}${status}`;
+}
+function renderResponseSnapshotOptions() {
+  const sel = document.getElementById("responseSnapshotSelect");
+  if (!sel) return;
+  const d = state.activeTabId ? state.tabData[state.activeTabId] : null;
+  sel.innerHTML = '<option value="">Latest response</option>';
+  const list = d?.responses || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const snap = list[i];
+    const label = formatResponseSnapshotLabel(snap, i);
+    sel.innerHTML += `<option value="${escHtml(snap.id)}">${escHtml(label)}</option>`;
+  }
+  if (d?.activeResponseId) sel.value = d.activeResponseId;
+  else sel.value = "";
+}
+function selectSavedResponse(snapshotId) {
+  const d = state.activeTabId ? state.tabData[state.activeTabId] : null;
+  if (!d) return;
+  if (!snapshotId) {
+    d.activeResponseId = "";
+    if (d.response) restoreResponse(d.response);
+    else showResponsePlaceholder();
+    saveState();
+    return;
+  }
+  const snap = (d.responses || []).find((r) => r.id === snapshotId);
+  if (!snap) return;
+  d.activeResponseId = snapshotId;
+  restoreResponse(snap);
+  saveState();
+}
+function addResponseSnapshot(snapshot, setActive = true) {
+  if (!state.activeTabId || !state.tabData[state.activeTabId] || !snapshot) return;
+  const d = state.tabData[state.activeTabId];
+  const snap = { ...snapshot, id: snapshot.id || genId(), createdAt: snapshot.createdAt || Date.now() };
+  d.response = snap;
+  if (!Array.isArray(d.responses)) d.responses = [];
+  d.responses.push(snap);
+  if (d.responses.length > 30) d.responses = d.responses.slice(-30);
+  if (setActive) d.activeResponseId = snap.id;
+  renderResponseSnapshotOptions();
+}
+function saveCurrentResponseSnapshot() {
+  if (!state.activeTabId || !state.tabData[state.activeTabId]) return;
+  const d = state.tabData[state.activeTabId];
+  if (!d.response) return showNotif("No response to save yet", "info");
+  const cloned = {
+    ...d.response,
+    id: genId(),
+    createdAt: Date.now(),
+    label: `Saved ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`
+  };
+  if (!Array.isArray(d.responses)) d.responses = [];
+  d.responses.push(cloned);
+  if (d.responses.length > 30) d.responses = d.responses.slice(-30);
+  d.activeResponseId = cloned.id;
+  renderResponseSnapshotOptions();
+  saveState();
+  showNotif("Response snapshot saved", "success");
 }
 function switchResponseMode(mode) {
   setActiveTabBtn(".resp-mode-btn", mode, "data-mode");
@@ -26648,6 +26745,7 @@ function showResponsePlaceholder() {
     const e = el(id);
     if (e) e.style.display = "none";
   });
+  renderResponseSnapshotOptions();
 }
 function restoreResponse(cached) {
   if (!cached) return showResponsePlaceholder();
@@ -26679,6 +26777,7 @@ function restoreResponse(cached) {
   if (rcb && cached.cookiesHtml) rcb.innerHTML = cached.cookiesHtml;
   window._lastResponse = cached.bodyRaw;
   switchResponseMode("pretty");
+  renderResponseSnapshotOptions();
 }
 function openSaveModal() {
   const sel = document.getElementById("saveCollection");
@@ -28096,754 +28195,11 @@ ${"─".repeat(50)}
   const langs = document.querySelector(".codegen-langs");
   if (langs) langs.style.display = "none";
 }
-function _publishApiRoot() {
-  if (typeof window.getRestifyApiBase === "function") {
-    const b = window.getRestifyApiBase();
-    if (b) return String(b).replace(/\/+$/, "");
-  }
-  return "https://api.restify.online";
-}
-function shareQuickUrl() {
-  if (typeof window.restifyApiUrl === "function") {
-    const u = window.restifyApiUrl("/api/share/quick");
-    if (/^https?:\/\//i.test(u)) return u;
-  }
-  return _publishApiRoot() + "/api/share/quick";
-}
-function apiSharedUrl(id) {
-  if (typeof window.restifyApiUrl === "function") {
-    const u = window.restifyApiUrl("/api/shared/" + encodeURIComponent(id));
-    if (/^https?:\/\//i.test(u)) return u;
-  }
-  return _publishApiRoot() + "/api/shared/" + encodeURIComponent(id);
-}
-async function shareCollection(colId) {
-  const col = findNodeInAll(colId);
-  if (!col) return;
-  const shareData = deepClone(col);
-  try {
-    const resp = await fetch(shareQuickUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ collection: shareData, name: col.name })
-    });
-    const text = await resp.text();
-    const trimmed = text.trimStart();
-    if (trimmed.startsWith("<")) {
-      throw new Error(
-        "API returned a web page instead of JSON. On desktop, ensure the Restify API is running or reachable (default https://api.restify.online)."
-      );
-    }
-    let result;
-    try {
-      result = JSON.parse(text);
-    } catch {
-      throw new Error("Invalid response from server");
-    }
-    if (!resp.ok) throw new Error(result.error || "Server returned " + resp.status);
-    showShareResult(result, col.name);
-    showNotif("Published online — copy the documentation link to share", "success");
-  } catch (err) {
-    showNotif("Publish failed: " + err.message, "error");
-  }
-}
-function showShareResult(result, name2) {
-  const nameEl = document.getElementById("shareCollectionName");
-  const docUrlEl = document.getElementById("shareDocUrl");
-  const importUrlEl = document.getElementById("shareImportUrl");
-  const docLinkEl = document.getElementById("shareDocLink");
-  const shareModal = document.getElementById("shareModal");
-  if (nameEl) nameEl.textContent = name2;
-  if (docUrlEl) docUrlEl.value = result.docUrl;
-  if (importUrlEl) importUrlEl.value = result.importUrl;
-  if (docLinkEl) {
-    docLinkEl.href = result.docUrl;
-    docLinkEl.rel = "noopener noreferrer";
-    docLinkEl.onclick = (e) => {
-      e.preventDefault();
-      const u = (docUrlEl?.value || result.docUrl || "").trim();
-      if (!u) return;
-      const api = window.electronAPI;
-      if (api?.openExternal) {
-        void api.openExternal(u);
-      } else {
-        window.open(u, "_blank", "noopener,noreferrer");
-      }
-      closeShareModal();
-    };
-  }
-  shareModal?.classList.add("open");
-}
-function closeShareModal() {
-  document.getElementById("shareModal")?.classList.remove("open");
-}
-function copyShareUrl(inputId) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  navigator.clipboard.writeText(input.value).then(() => showNotif("Link copied!", "success"));
-}
-async function checkAutoImport() {
-  const params = new URLSearchParams(window.location.search);
-  const importId = params.get("import");
-  if (!importId) return;
-  try {
-    const resp = await fetch(apiSharedUrl(importId));
-    if (!resp.ok) throw new Error("Collection not found");
-    const data = await resp.json();
-    if (data.collection) {
-      const col = data.collection;
-      assignNewIds(col);
-      state.collections.push(col);
-      state.openFolders.add(col.id);
-      saveState();
-      if (typeof window.renderSidebar === "function") window.renderSidebar();
-      showNotif(`Imported "${col.name}"`, "success");
-      window.history.replaceState({}, "", "/");
-    }
-  } catch (err) {
-    showNotif("Import failed: " + err.message, "error");
-  }
-}
-const CLOUD_DEFAULT = "https://api.restify.online";
-const LS_CLOUD_SESSION = "restify_cloud_session";
-const LS_CLOUD_SESSION_LEGACY = "restfy_cloud_session";
-const LS_CLOUD_URL = "restify_cloud_url";
-const LS_CLOUD_URL_LEGACY = "restfy_cloud_url";
-function cloudBase$1() {
-  const u = localStorage.getItem(LS_CLOUD_URL) || localStorage.getItem(LS_CLOUD_URL_LEGACY);
-  const t2 = u && String(u).trim();
-  if (t2) return String(t2).replace(/\/+$/, "");
-  if (typeof window !== "undefined") {
-    const w = window.__RESTIFY_API_BASE__ ?? window.__RESTFY_API_BASE__;
-    if (w != null && String(w).trim() !== "") return String(w).trim().replace(/\/+$/, "");
-  }
-  return String(CLOUD_DEFAULT).replace(/\/+$/, "");
-}
-function cloudApiUrl(path) {
-  const p = path.charAt(0) === "/" ? path : "/" + path;
-  return cloudBase$1() + p;
-}
-async function _cloudReadJson(resp) {
-  const text = await resp.text();
-  const trimmed = text.trimStart();
-  if (!trimmed || trimmed.startsWith("<")) {
-    throw new Error(
-      "Server returned a web page instead of JSON. Use the API base only (e.g. https://api.restify.online), not the web app URL."
-    );
-  }
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("Invalid JSON from server.");
-  }
-  if (!resp.ok) throw new Error(data.error || data.message || "Request failed");
-  return data;
-}
-let _cloudUser = null;
-let _cloudToken$1 = null;
-let _syncInProgress = false;
-let _lastSyncAt = 0;
-function isCloudLoggedIn() {
-  return !!_cloudToken$1;
-}
-function _cloudHeaders$1() {
-  const h = { "Content-Type": "application/json" };
-  if (_cloudToken$1) h["Authorization"] = "Bearer " + _cloudToken$1;
-  return h;
-}
-function _loadCloudSession() {
-  try {
-    const s = localStorage.getItem(LS_CLOUD_SESSION) || localStorage.getItem(LS_CLOUD_SESSION_LEGACY);
-    if (s) {
-      const parsed = JSON.parse(s);
-      _cloudUser = parsed.user;
-      _cloudToken$1 = parsed.token;
-      _lastSyncAt = parsed.lastSyncAt || 0;
-    }
-  } catch {
-  }
-}
-function _saveCloudSession() {
-  if (_cloudUser && _cloudToken$1) {
-    localStorage.setItem(
-      LS_CLOUD_SESSION,
-      JSON.stringify({ user: _cloudUser, token: _cloudToken$1, lastSyncAt: _lastSyncAt })
-    );
-    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
-  } else {
-    localStorage.removeItem(LS_CLOUD_SESSION);
-    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
-  }
-}
-async function cloudRegister(email, password, name2) {
-  const resp = await fetch(cloudApiUrl("/api/auth/register"), {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name: name2 })
-  });
-  const data = await _cloudReadJson(resp);
-  _cloudUser = data.user;
-  _cloudToken$1 = data.token;
-  _saveCloudSession();
-  return data;
-}
-async function cloudLogin(email, password) {
-  const resp = await fetch(cloudApiUrl("/api/auth/login"), {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  });
-  const data = await _cloudReadJson(resp);
-  _cloudUser = data.user;
-  _cloudToken$1 = data.token;
-  _saveCloudSession();
-  return data;
-}
-async function cloudLogout() {
-  try {
-    await fetch(cloudApiUrl("/api/auth/logout"), { method: "POST", credentials: "include" });
-  } catch (_) {
-  }
-  _cloudUser = null;
-  _cloudToken$1 = null;
-  _lastSyncAt = 0;
-  _saveCloudSession();
-  renderCloudStatus();
-  const nameEl = document.getElementById("workspaceBannerNameText");
-  if (nameEl) nameEl.textContent = "My Workspace";
-}
-async function cloudSync() {
-  if (!_cloudToken$1 || _syncInProgress) return;
-  _syncInProgress = true;
-  renderCloudStatus();
-  try {
-    const colResp = await fetch(cloudApiUrl("/api/collections/sync"), {
-      method: "POST",
-      credentials: "include",
-      headers: _cloudHeaders$1(),
-      body: JSON.stringify({ collections: state.collections, lastSyncAt: _lastSyncAt })
-    });
-    if (colResp.status === 401) {
-      void cloudLogout();
-      throw new Error("Session expired");
-    }
-    const colData = await _cloudReadJson(colResp);
-    const envResp = await fetch(cloudApiUrl("/api/environments/sync"), {
-      method: "POST",
-      credentials: "include",
-      headers: _cloudHeaders$1(),
-      body: JSON.stringify({ environments: state.environments, globalVars: state.globalVars })
-    });
-    const envData = await _cloudReadJson(envResp);
-    if (colData.collections) {
-      state.collections.length = 0;
-      colData.collections.forEach((c) => {
-        delete c._syncedAt;
-        state.collections.push(c);
-      });
-    }
-    if (envData.environments) {
-      state.environments.length = 0;
-      envData.environments.forEach((e) => {
-        delete e._syncedAt;
-        state.environments.push(e);
-      });
-    }
-    if (envData.globalVars) {
-      state.globalVars.length = 0;
-      envData.globalVars.forEach((v) => state.globalVars.push(v));
-    }
-    _lastSyncAt = colData.syncedAt || Math.floor(Date.now() / 1e3);
-    _saveCloudSession();
-    saveState();
-    if (typeof window.renderSidebar === "function") window.renderSidebar();
-    if (typeof window.renderEnvSelector === "function") window.renderEnvSelector();
-    showNotif("Synced with cloud", "success");
-  } catch (err) {
-    showNotif("Sync error: " + err.message, "error");
-  } finally {
-    _syncInProgress = false;
-    renderCloudStatus();
-  }
-}
-function _renderSidebarCloudLink() {
-  const side = document.getElementById("sidebarCloudLink");
-  if (!side) return;
-  if (!_cloudToken$1) {
-    side.innerHTML = '<button type="button" class="sidebar-cloud-btn" onclick="openCloudModal()" title="Restify Cloud">☁ Cloud · Sign in</button>';
-    return;
-  }
-  const initial = (_cloudUser?.name || _cloudUser?.email || "?").charAt(0).toUpperCase();
-  side.innerHTML = `<button type="button" class="sidebar-cloud-btn sidebar-cloud-btn--in" onclick="openCloudModal()" title="${escHtml(_cloudUser?.email || "")}">☁ ${initial}</button>`;
-}
-async function cloudForgotPassword() {
-  const email = await appPrompt(
-    "Forgot password",
-    "If this email is registered, we will send you a reset link.",
-    { placeholder: "you@example.com", okLabel: "Send link" }
-  );
-  if (!email?.trim()) return;
-  try {
-    const resp = await fetch(cloudApiUrl("/api/auth/forgot-password"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim() })
-    });
-    const data = await resp.json();
-    showNotif(data.message || "Check your email inbox.", "success");
-  } catch {
-    showNotif("Could not send request. Try again later.", "error");
-  }
-}
-async function maybeOpenPasswordResetFromUrl() {
-  if (typeof window === "undefined") return;
-  try {
-    const u = new URL(window.location.href);
-    const t2 = u.searchParams.get("resetPassword");
-    if (!t2) return;
-    u.searchParams.delete("resetPassword");
-    window.history.replaceState({}, "", u.pathname + u.search + u.hash);
-    const p1 = await appPrompt("New password", "Choose a password (at least 6 characters).", {
-      inputType: "password",
-      okLabel: "Continue"
-    });
-    if (!p1 || p1.length < 6) {
-      showNotif("Password must be at least 6 characters", "error");
-      return;
-    }
-    const p2 = await appPrompt("Confirm password", "Enter the same password again.", {
-      inputType: "password",
-      okLabel: "Reset password"
-    });
-    if (!p2) return;
-    if (p1 !== p2) {
-      showNotif("Passwords do not match", "error");
-      return;
-    }
-    const resp = await fetch(cloudApiUrl("/api/auth/reset-password"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: t2, newPassword: p1 })
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      showNotif(data.error || "Reset failed", "error");
-      return;
-    }
-    showNotif("Password updated — you can sign in.", "success");
-    openCloudModal();
-  } catch {
-    showNotif("Reset failed", "error");
-  }
-}
-function renderCloudStatus() {
-  const el = document.getElementById("cloudStatusArea");
-  if (el) {
-    if (!_cloudToken$1) {
-      el.innerHTML = '<button class="cloud-login-btn" onclick="openCloudModal()" title="Restify Cloud">Sign in</button>';
-    } else {
-      const initial = (_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase();
-      el.innerHTML = `
-    <div class="cloud-status-pill" onclick="openCloudModal()" title="${escHtml(_cloudUser.email)}">
-      <span class="cloud-avatar">${initial}</span>
-      <span class="cloud-sync-icon ${_syncInProgress ? "spinning" : ""}">↻</span>
-    </div>
-  `;
-    }
-  }
-  _renderSidebarCloudLink();
-}
-function openCloudModal() {
-  if (_cloudToken$1) _renderCloudAccountView();
-  else _renderCloudLoginView();
-  document.getElementById("cloudModal")?.classList.add("open");
-}
-function closeCloudModal() {
-  document.getElementById("cloudModal")?.classList.remove("open");
-}
-function _renderCloudLoginView() {
-  const body = document.getElementById("cloudModalBody");
-  if (!body) return;
-  body.innerHTML = `
-    <div class="cloud-tabs">
-      <button class="cloud-tab-btn active" id="cloudTabLogin" onclick="_switchCloudTab('login')">Sign In</button>
-      <button class="cloud-tab-btn" id="cloudTabRegister" onclick="_switchCloudTab('register')">Create Account</button>
-    </div>
-    <div id="cloudTabContent">
-      <div class="cloud-form">
-        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="cloudEmail" placeholder="you@example.com" autocomplete="email"></div>
-        <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="cloudPassword" placeholder="••••••" autocomplete="current-password"></div>
-        <div style="text-align:right;margin:-6px 0 8px"><button type="button" class="btn-text" style="font-size:12px;padding:0" onclick="cloudForgotPassword()">Forgot password?</button></div>
-        <div id="cloudNameGroup" class="form-group" style="display:none"><label class="form-label">Name</label><input type="text" class="form-input" id="cloudName" placeholder="Your name" autocomplete="name"></div>
-        <div id="cloudError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
-        <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
-      </div>
-    </div>
-  `;
-  setTimeout(() => document.getElementById("cloudEmail")?.focus(), 100);
-}
-let _cloudAuthMode = "login";
-function _switchCloudTab(mode) {
-  _cloudAuthMode = mode;
-  document.getElementById("cloudTabLogin")?.classList.toggle("active", mode === "login");
-  document.getElementById("cloudTabRegister")?.classList.toggle("active", mode === "register");
-  const nameGroup = document.getElementById("cloudNameGroup");
-  if (nameGroup) nameGroup.style.display = mode === "register" ? "block" : "none";
-  const submitBtn = document.getElementById("cloudSubmitBtn");
-  if (submitBtn) submitBtn.textContent = mode === "login" ? "Sign In" : "Create Account";
-  const errEl = document.getElementById("cloudError");
-  if (errEl) errEl.style.display = "none";
-}
-async function _submitCloudAuth() {
-  const email = document.getElementById("cloudEmail").value.trim();
-  const password = document.getElementById("cloudPassword").value;
-  const nameEl = document.getElementById("cloudName");
-  const name2 = nameEl?.value?.trim() || "";
-  const errEl = document.getElementById("cloudError");
-  if (!email || !password) {
-    errEl.textContent = "Email and password are required";
-    errEl.style.display = "block";
-    return;
-  }
-  const btn = document.getElementById("cloudSubmitBtn");
-  btn.disabled = true;
-  btn.textContent = "Please wait...";
-  try {
-    if (_cloudAuthMode === "register") {
-      await cloudRegister(email, password, name2);
-    } else {
-      await cloudLogin(email, password);
-    }
-    closeCloudModal();
-    renderCloudStatus();
-    cloudSync();
-    if (typeof window.initWorkspaceBanner === "function") {
-      void window.initWorkspaceBanner();
-    }
-  } catch (err) {
-    errEl.textContent = err.message;
-    errEl.style.display = "block";
-  } finally {
-    btn.disabled = false;
-    btn.textContent = _cloudAuthMode === "login" ? "Sign In" : "Create Account";
-  }
-}
-function _renderCloudAccountView() {
-  const body = document.getElementById("cloudModalBody");
-  if (!body) return;
-  body.innerHTML = `
-    <div style="text-align:center;margin-bottom:20px">
-      <div class="cloud-avatar-large">${(_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase()}</div>
-      <div style="font-size:16px;font-weight:600;margin-top:8px">${escHtml(_cloudUser.name || "Restify User")}</div>
-      <div style="font-size:13px;color:var(--text-dim)">${escHtml(_cloudUser.email)}</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn-primary" style="width:100%" onclick="cloudSync(); closeCloudModal();">↻ Sync Now</button>
-      <button class="btn-secondary" style="width:100%" onclick="closeCloudModal(); openTeamsModal();">👥 Teams</button>
-      <button class="btn-secondary" style="width:100%" onclick="_cloudAutoSync()">Enable Auto-Sync</button>
-      <div style="border-top:1px solid var(--border);margin:8px 0"></div>
-      <button class="btn-secondary" style="width:100%;color:var(--red);border-color:var(--red)" onclick="cloudLogout(); closeCloudModal();">Sign Out</button>
-    </div>
-    <div style="margin-top:16px;font-size:11px;color:var(--text-dim);text-align:center">
-      Last synced: ${_lastSyncAt ? new Date(_lastSyncAt * 1e3).toLocaleString() : "Never"}
-    </div>
-  `;
-}
-let _autoSyncInterval = null;
-function _cloudAutoSync() {
-  if (_autoSyncInterval) {
-    clearInterval(_autoSyncInterval);
-    _autoSyncInterval = null;
-    showNotif("Auto-sync disabled", "info");
-    return;
-  }
-  _autoSyncInterval = setInterval(() => {
-    if (_cloudToken$1) cloudSync();
-  }, 6e4);
-  showNotif("Auto-sync enabled (every 60s)", "success");
-}
-_loadCloudSession();
-let _activeAbortController = null;
-let _requestElapsedTimer = null;
-function cancelRequest() {
-  if (_activeAbortController) {
-    _activeAbortController.abort();
-    _activeAbortController = null;
-  }
-}
-async function sendRequest() {
-  const methodSel = document.getElementById("methodSelect");
-  const urlInput = document.getElementById("urlInput");
-  let method = methodSel.value;
-  let url = urlInput.value.trim();
-  if (!url) {
-    showNotif("Please enter a URL", "error");
-    return;
-  }
-  if (!url.startsWith("http")) url = "https://" + url;
-  url = resolveVariables(url);
-  const params = getKvStore("params").filter((r) => r.enabled && r.key);
-  if (params.length) {
-    const qs = params.map((r) => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join("&");
-    url += (url.includes("?") ? "&" : "?") + qs;
-  }
-  const headers = {};
-  const tab = state.tabs.find((t2) => t2.id === state.activeTabId);
-  if (tab?.sourceId) {
-    const inherited = getInheritedHeaders(tab.sourceId);
-    Object.entries(inherited).forEach(([k, v]) => {
-      headers[k] = v.value;
-    });
-  }
-  getKvStore("headers").filter((r) => r.enabled && r.key).forEach((r) => {
-    headers[resolveVariables(r.key)] = resolveVariables(r.value);
-  });
-  let auth = getAuthState();
-  if (auth.type === "inherit" && tab?.sourceId) {
-    const inherited = getInheritedAuth(tab.sourceId);
-    if (inherited) auth = inherited.auth;
-  }
-  if (auth.type === "bearer") headers["Authorization"] = `Bearer ${resolveVariables(auth.token)}`;
-  else if (auth.type === "basic") headers["Authorization"] = "Basic " + btoa(`${resolveVariables(auth.username)}:${resolveVariables(auth.password)}`);
-  else if (auth.type === "apikey") headers[resolveVariables(auth.key)] = resolveVariables(auth.value);
-  else if (auth.type === "oauth2" && auth.token) headers["Authorization"] = `Bearer ${auth.token}`;
-  let body = null;
-  const bodyType = state.currentBodyType;
-  if (method !== "GET" && method !== "HEAD") {
-    if (bodyType === "json" || bodyType === "raw") {
-      body = resolveVariables(getBodyEditorText());
-      if (bodyType === "json" && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-    } else if (bodyType === "graphql") {
-      const query = resolveVariables(getBodyEditorText());
-      const vars = document.getElementById("graphqlVarsTextarea")?.value || "{}";
-      try {
-        body = JSON.stringify({ query, variables: JSON.parse(resolveVariables(vars)) });
-      } catch {
-        body = JSON.stringify({ query, variables: {} });
-      }
-      headers["Content-Type"] = "application/json";
-    } else if (bodyType === "form") {
-      const fd = new FormData();
-      getKvStore("bodyForm").filter((r) => r.enabled && r.key).forEach((r) => {
-        if (r.type === "file" && r.file) fd.append(r.key, r.file);
-        else fd.append(resolveVariables(r.key), resolveVariables(r.value));
-      });
-      body = fd;
-    } else if (bodyType === "urlencoded") {
-      if (!headers["Content-Type"]) headers["Content-Type"] = "application/x-www-form-urlencoded";
-      body = getKvStore("bodyForm").filter((r) => r.enabled && r.key).map((r) => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join("&");
-    } else if (bodyType === "binary") {
-      const fileInput = document.getElementById("binaryFileInput");
-      if (fileInput?.files?.[0]) body = fileInput.files[0];
-    }
-  }
-  let reqContext = { url, method, headers, body };
-  if (tab?.sourceId) {
-    const chain = getAncestorChain(tab.sourceId);
-    for (const ancestor of chain) {
-      if (ancestor.preRequestScript) {
-        try {
-          const r = runPreRequestScript(ancestor.preRequestScript, reqContext);
-          if (r) Object.assign(reqContext, r);
-        } catch (e) {
-          showNotif("Pre-request script error (" + ancestor.name + "): " + e.message, "error");
-          return;
-        }
-      }
-    }
-  }
-  const preScript = state.activeTabId ? state.tabData[state.activeTabId]?.preRequestScript : "";
-  if (preScript) {
-    try {
-      const r = runPreRequestScript(preScript, reqContext);
-      if (r) Object.assign(reqContext, r);
-    } catch (e) {
-      showNotif("Pre-request script error: " + e.message, "error");
-      return;
-    }
-  }
-  url = reqContext.url;
-  method = reqContext.method;
-  Object.assign(headers, reqContext.headers);
-  if (reqContext.body !== void 0) body = reqContext.body;
-  const sendBtn = document.getElementById("sendBtn");
-  sendBtn.innerHTML = '<span class="spinner"></span><span id="sendElapsed"></span>';
-  sendBtn.classList.add("loading");
-  sendBtn.onclick = cancelRequest;
-  const startTime = Date.now();
-  _requestElapsedTimer = setInterval(() => {
-    const el = document.getElementById("sendElapsed");
-    if (el) el.textContent = ((Date.now() - startTime) / 1e3).toFixed(1) + "s";
-  }, 100);
-  _activeAbortController = new AbortController();
-  const signal = _activeAbortController.signal;
-  try {
-    const opts = { method, headers, signal };
-    if (body) opts.body = body;
-    const response = await window.restifyFetch(url, opts);
-    const elapsed = Date.now() - startTime;
-    const respText = await response.text();
-    showResponse(response, respText, elapsed, url, method);
-    const respCtx = { status: response.status, statusText: response.statusText, body: respText, headers: Object.fromEntries(response.headers.entries()) };
-    let allTestResults = [];
-    if (tab?.sourceId) {
-      const chain = getAncestorChain(tab.sourceId);
-      for (const ancestor of chain) {
-        if (ancestor.testScript) {
-          try {
-            allTestResults = allTestResults.concat(runTestScript(ancestor.testScript, respCtx));
-          } catch (e) {
-            console.error("Test script error (" + ancestor.name + "):", e);
-          }
-        }
-      }
-    }
-    const testScript = state.activeTabId ? state.tabData[state.activeTabId]?.testScript : "";
-    if (testScript) {
-      try {
-        allTestResults = allTestResults.concat(runTestScript(testScript, respCtx));
-      } catch (e) {
-        console.error("Test script error:", e);
-      }
-    }
-    if (allTestResults.length) renderTestResults(allTestResults);
-  } catch (err) {
-    if (err.name === "AbortError") {
-      showNotif("Request cancelled", "info");
-      showResponsePlaceholder();
-    } else showError(err.message);
-  } finally {
-    if (_requestElapsedTimer) {
-      clearInterval(_requestElapsedTimer);
-      _requestElapsedTimer = null;
-    }
-    _activeAbortController = null;
-    sendBtn.innerHTML = "&#9654; Send";
-    sendBtn.classList.remove("loading");
-    sendBtn.onclick = sendRequest;
-  }
-}
-function showResponse(response, text, elapsed, reqUrl, reqMethod) {
-  const statusBadge = document.getElementById("statusBadge");
-  const cls = response.status < 300 ? "2xx" : response.status < 400 ? "3xx" : response.status < 500 ? "4xx" : "5xx";
-  const statusHtml = `<span class="status-badge status-${cls}"><span class="status-dot"></span>${response.status} ${response.statusText}</span>`;
-  statusBadge.innerHTML = statusHtml;
-  const size = new Blob([text]).size;
-  const meta2 = `${elapsed}ms · ${formatBytes(size)}`;
-  const rm2 = document.getElementById("respMeta");
-  if (rm2) rm2.textContent = meta2;
-  ["copyRespBtn", "curlBtn", "codeGenBtn", "beautifyRespBtn"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "inline-flex";
-  });
-  let bodyHtml = "";
-  const content2 = document.getElementById("responseBodyContent");
-  try {
-    const json2 = JSON.parse(text);
-    bodyHtml = syntaxHighlight(JSON.stringify(json2, null, 2));
-    content2.innerHTML = bodyHtml;
-  } catch {
-    if (text.trim().startsWith("<") && (text.includes("</") || text.includes("/>"))) {
-      bodyHtml = syntaxHighlightXml(text);
-      content2.innerHTML = bodyHtml;
-    } else {
-      content2.textContent = text;
-      bodyHtml = escHtml(text);
-    }
-  }
-  const ph = document.getElementById("responsePlaceholder");
-  if (ph) ph.style.display = "none";
-  content2.style.display = "block";
-  const raw = document.getElementById("responseBodyRaw");
-  if (raw) {
-    raw.style.display = "none";
-    raw.textContent = text;
-  }
-  const preview = document.getElementById("responseBodyPreview");
-  if (preview) preview.srcdoc = text.trim().startsWith("<") ? text : `<pre style="font-family:monospace;white-space:pre-wrap;padding:12px">${escHtml(text)}</pre>`;
-  switchResponseMode("pretty");
-  const tbody = document.getElementById("respHeadersBody");
-  tbody.innerHTML = "";
-  let headersHtml = "";
-  response.headers.forEach((val, name2) => {
-    const row = `<tr><td>${escHtml(name2)}</td><td>${escHtml(val)}</td></tr>`;
-    headersHtml += row;
-    tbody.innerHTML += row;
-  });
-  let cookiesHtml = "";
-  const cookieBody = document.getElementById("respCookiesBody");
-  cookieBody.innerHTML = "";
-  response.headers.forEach((val, name2) => {
-    if (name2.toLowerCase() === "set-cookie") {
-      const parts = val.split(";").map((s) => s.trim());
-      const [nameVal, ...attrs] = parts;
-      const [cName, cVal] = nameVal.split("=");
-      const row = `<tr><td>${escHtml(cName)}</td><td>${escHtml(cVal || "")}</td><td>${escHtml(attrs.join("; "))}</td></tr>`;
-      cookiesHtml += row;
-      cookieBody.innerHTML += row;
-    }
-  });
-  window._lastResponse = text;
-  if (state.activeTabId && state.tabData[state.activeTabId]) {
-    state.tabData[state.activeTabId].response = { statusHtml, meta: meta2, bodyHtml, bodyRaw: text, headersHtml, cookiesHtml };
-  }
-  addToHistory({ method: reqMethod || "GET", url: reqUrl || "", status: response.status, time: elapsed, size });
-  saveState();
-}
-function showError(msg) {
-  const sb = document.getElementById("statusBadge");
-  sb.innerHTML = '<span class="status-badge status-4xx"><span class="status-dot"></span>Error</span>';
-  const rm2 = document.getElementById("respMeta");
-  if (rm2) rm2.textContent = "";
-  const ph = document.getElementById("responsePlaceholder");
-  if (ph) ph.style.display = "none";
-  const content2 = document.getElementById("responseBodyContent");
-  content2.style.display = "block";
-  content2.textContent = `Request failed
-
-${msg}
-
-If you see CORS errors, the server doesn't allow browser requests.
-The desktop app bypasses CORS restrictions.`;
-  const raw = document.getElementById("responseBodyRaw");
-  if (raw) raw.textContent = msg;
-  ["curlBtn", "codeGenBtn"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "inline-flex";
-  });
-  window._lastResponse = msg;
-}
-function renderTestResults(results) {
-  const container = document.getElementById("testResultsContent");
-  if (!container || !results?.length) return;
-  container.innerHTML = "";
-  let passed = 0, failed = 0;
-  results.forEach((r) => {
-    if (r.passed) passed++;
-    else failed++;
-    const div = document.createElement("div");
-    div.className = "test-result " + (r.passed ? "test-pass" : "test-fail");
-    div.innerHTML = `<span class="test-icon">${r.passed ? "✓" : "✗"}</span> <span>${escHtml(r.name)}</span>${r.error ? `<span class="test-error">${escHtml(r.error)}</span>` : ""}`;
-    container.appendChild(div);
-  });
-  const summary = document.createElement("div");
-  summary.className = "test-summary";
-  summary.textContent = `${passed} passed, ${failed} failed`;
-  container.prepend(summary);
-  const badge = document.querySelector('.response-tab[data-tab="tests"] .tab-badge');
-  if (badge) {
-    badge.textContent = String(failed > 0 ? failed : passed);
-    badge.className = "tab-badge " + (failed > 0 ? "badge-fail" : "badge-pass");
-  }
-}
 let _teams = [];
 let _workspaces = [];
 let _teamDetail = null;
 let _workspaceDetail = null;
-function _cloudHeaders() {
+function _cloudHeaders$1() {
   const h = { "Content-Type": "application/json" };
   const sess = localStorage.getItem("restify_cloud_session") || localStorage.getItem("restfy_cloud_session");
   if (sess) {
@@ -28855,7 +28211,7 @@ function _cloudHeaders() {
   }
   return h;
 }
-function _cloudToken() {
+function _cloudToken$1() {
   const sess = localStorage.getItem("restify_cloud_session") || localStorage.getItem("restfy_cloud_session");
   if (!sess) return null;
   try {
@@ -28864,7 +28220,7 @@ function _cloudToken() {
     return null;
   }
 }
-function cloudBase() {
+function cloudBase$1() {
   const u = localStorage.getItem("restify_cloud_url") || localStorage.getItem("restfy_cloud_url");
   const t2 = u && String(u).trim();
   if (t2) return String(t2).replace(/\/+$/, "");
@@ -28876,10 +28232,10 @@ function cloudBase() {
 }
 function teamApiUrl(path) {
   const p = path.charAt(0) === "/" ? path : "/" + path;
-  return cloudBase() + p;
+  return cloudBase$1() + p;
 }
 function openTeamsModal() {
-  if (!_cloudToken()) {
+  if (!_cloudToken$1()) {
     showNotif("Sign in to Restify Cloud to use Teams", "info");
     return;
   }
@@ -28895,8 +28251,8 @@ function closeTeamsModal() {
 async function loadTeamsAndWorkspaces() {
   try {
     const [teamsResp, wsResp] = await Promise.all([
-      fetch(teamApiUrl("/api/teams"), { credentials: "include", headers: _cloudHeaders() }),
-      fetch(teamApiUrl("/api/workspaces"), { credentials: "include", headers: _cloudHeaders() })
+      fetch(teamApiUrl("/api/teams"), { credentials: "include", headers: _cloudHeaders$1() }),
+      fetch(teamApiUrl("/api/workspaces"), { credentials: "include", headers: _cloudHeaders$1() })
     ]);
     if (!teamsResp.ok) throw new Error("Failed to load teams");
     if (!wsResp.ok) throw new Error("Failed to load workspaces");
@@ -28924,7 +28280,7 @@ async function createWorkspace() {
     const resp = await fetch(teamApiUrl("/api/workspaces"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ name: name2.trim() })
     });
     if (!resp.ok) {
@@ -28956,7 +28312,7 @@ async function createTeam(workspaceId) {
     const resp = await fetch(teamApiUrl("/api/teams"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ name: name2.trim(), workspaceId: wsId })
     });
     if (!resp.ok) {
@@ -28973,7 +28329,7 @@ async function openTeamDetail(teamId) {
   try {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}`), {
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to load team");
     _teamDetail = await resp.json();
@@ -28987,7 +28343,7 @@ async function openWorkspaceDetail(workspaceId) {
   try {
     const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}`), {
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to load workspace");
     _workspaceDetail = await resp.json();
@@ -29007,7 +28363,7 @@ async function inviteToWorkspace(workspaceId) {
     const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/invite`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ email: email.trim(), role: "member" })
     });
     if (!resp.ok) {
@@ -29025,7 +28381,7 @@ async function cancelWorkspaceInvite(workspaceId, inviteId) {
     const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/invites/${inviteId}`), {
       method: "DELETE",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed");
     showNotif("Invite cancelled", "success");
@@ -29044,7 +28400,7 @@ async function leaveWorkspace(workspaceId, workspaceName) {
     const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}/leave`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to leave workspace");
     showNotif("Left workspace", "success");
@@ -29065,7 +28421,7 @@ async function deleteWorkspace(workspaceId, workspaceName) {
     const resp = await fetch(teamApiUrl(`/api/workspaces/${workspaceId}`), {
       method: "DELETE",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to delete workspace");
     showNotif("Workspace deleted", "success");
@@ -29085,7 +28441,7 @@ async function inviteToTeam(teamId) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/invite`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ email: email.trim(), role: "member" })
     });
     if (!resp.ok) {
@@ -29106,14 +28462,14 @@ async function maybeAcceptTeamInvite() {
     if (!token) return;
     u.searchParams.delete("teamInvite");
     window.history.replaceState({}, "", u.pathname + u.search + u.hash);
-    if (!_cloudToken()) {
+    if (!_cloudToken$1()) {
       showNotif("Sign in first, then use the invite link again.", "info");
       return;
     }
     const resp = await fetch(teamApiUrl("/api/teams/accept-invite"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ token })
     });
     const data = await resp.json();
@@ -29139,14 +28495,14 @@ async function maybeAcceptWorkspaceInvite() {
     if (!token) return;
     u.searchParams.delete("workspaceInvite");
     window.history.replaceState({}, "", u.pathname + u.search + u.hash);
-    if (!_cloudToken()) {
+    if (!_cloudToken$1()) {
       showNotif("Sign in first, then use the invite link again.", "info");
       return;
     }
     const resp = await fetch(teamApiUrl("/api/workspaces/accept-invite"), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ token })
     });
     const data = await resp.json();
@@ -29171,7 +28527,7 @@ async function removeMember(teamId, userId, name2) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/members/${userId}`), {
       method: "DELETE",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) {
       const d = await resp.json().catch(() => ({}));
@@ -29188,7 +28544,7 @@ async function changeMemberRole(teamId, userId, newRole) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/members/${userId}`), {
       method: "PATCH",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ role: newRole })
     });
     if (!resp.ok) {
@@ -29211,7 +28567,7 @@ async function leaveTeam(teamId, teamName) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/leave`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to leave team");
     showNotif("Left team", "success");
@@ -29232,7 +28588,7 @@ async function deleteTeam(teamId, teamName) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}`), {
       method: "DELETE",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed to delete team");
     showNotif("Team deleted", "success");
@@ -29247,7 +28603,7 @@ async function cancelInvite(teamId, inviteId) {
     const resp = await fetch(teamApiUrl(`/api/teams/${teamId}/invites/${inviteId}`), {
       method: "DELETE",
       credentials: "include",
-      headers: _cloudHeaders()
+      headers: _cloudHeaders$1()
     });
     if (!resp.ok) throw new Error("Failed");
     showNotif("Invite cancelled", "success");
@@ -29257,12 +28613,12 @@ async function cancelInvite(teamId, inviteId) {
   }
 }
 async function syncTeamWorkspace(teamId) {
-  if (!_cloudToken()) return;
+  if (!_cloudToken$1()) return;
   try {
     const colResp = await fetch(teamApiUrl(`/api/teams/${teamId}/collections/sync`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ collections: state.collections })
     });
     if (!colResp.ok) throw new Error("Sync failed");
@@ -29270,7 +28626,7 @@ async function syncTeamWorkspace(teamId) {
     const envResp = await fetch(teamApiUrl(`/api/teams/${teamId}/environments/sync`), {
       method: "POST",
       credentials: "include",
-      headers: _cloudHeaders(),
+      headers: _cloudHeaders$1(),
       body: JSON.stringify({ environments: state.environments, globalVars: state.globalVars })
     });
     const envData = await envResp.json();
@@ -29524,12 +28880,23 @@ function _persistActiveWorkspace(id) {
   } catch {
   }
 }
+function clearWorkspaceContextOnLogout() {
+  _activeWorkspaceId = null;
+  _teams = [];
+  _workspaces = [];
+  try {
+    localStorage.removeItem(LS_ACTIVE_WS);
+  } catch (_) {
+  }
+  const nameEl = document.getElementById("workspaceBannerNameText");
+  if (nameEl) nameEl.textContent = "My Workspace";
+}
 function _renderWorkspaceBanner() {
   const nameEl = document.getElementById("workspaceBannerNameText");
   const banner = document.getElementById("workspaceBanner");
   if (!nameEl || !banner) return;
   banner.style.display = "flex";
-  if (!_cloudToken()) {
+  if (!_cloudToken$1()) {
     nameEl.textContent = "My Workspace";
     return;
   }
@@ -29548,15 +28915,15 @@ async function initWorkspaceBanner() {
     const nameEl = document.getElementById("workspaceBannerNameText");
     if (nameEl) nameEl.textContent = "My Workspace";
   }
-  if (!_cloudToken()) {
+  if (!_cloudToken$1()) {
     return;
   }
   const stored = localStorage.getItem(LS_ACTIVE_WS);
   if (stored) _activeWorkspaceId = stored;
   try {
     const [teamsResp, wsResp] = await Promise.all([
-      fetch(teamApiUrl("/api/teams"), { credentials: "include", headers: _cloudHeaders() }),
-      fetch(teamApiUrl("/api/workspaces"), { credentials: "include", headers: _cloudHeaders() })
+      fetch(teamApiUrl("/api/teams"), { credentials: "include", headers: _cloudHeaders$1() }),
+      fetch(teamApiUrl("/api/workspaces"), { credentials: "include", headers: _cloudHeaders$1() })
     ]);
     if (teamsResp.ok && wsResp.ok) {
       const teamsData = await teamsResp.json();
@@ -29632,7 +28999,7 @@ function _switchActiveWorkspace(workspaceId) {
   _renderWorkspaceBanner();
 }
 function inviteToActiveWorkspace() {
-  if (!_cloudToken()) {
+  if (!_cloudToken$1()) {
     showNotif("Sign in to use workspaces", "info");
     return;
   }
@@ -29644,7 +29011,7 @@ function inviteToActiveWorkspace() {
   void inviteToWorkspace(ws.id);
 }
 function openTeamsInActiveWorkspace() {
-  if (!_cloudToken()) {
+  if (!_cloudToken$1()) {
     showNotif("Sign in to use teams", "info");
     return;
   }
@@ -29654,6 +29021,874 @@ function openTeamsInActiveWorkspace() {
     document.getElementById("teamsModal")?.classList.add("open");
   } else {
     openTeamsModal();
+  }
+}
+const CLOUD_DEFAULT = "https://api.restify.online";
+const LS_CLOUD_SESSION = "restify_cloud_session";
+const LS_CLOUD_SESSION_LEGACY = "restfy_cloud_session";
+const LS_CLOUD_URL = "restify_cloud_url";
+const LS_CLOUD_URL_LEGACY = "restfy_cloud_url";
+function cloudBase() {
+  const u = localStorage.getItem(LS_CLOUD_URL) || localStorage.getItem(LS_CLOUD_URL_LEGACY);
+  const t2 = u && String(u).trim();
+  if (t2) return String(t2).replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const w = window.__RESTIFY_API_BASE__ ?? window.__RESTFY_API_BASE__;
+    if (w != null && String(w).trim() !== "") return String(w).trim().replace(/\/+$/, "");
+  }
+  return String(CLOUD_DEFAULT).replace(/\/+$/, "");
+}
+function cloudApiUrl(path) {
+  const p = path.charAt(0) === "/" ? path : "/" + path;
+  return cloudBase() + p;
+}
+async function _cloudReadJson(resp) {
+  const text = await resp.text();
+  const trimmed = text.trimStart();
+  if (!trimmed || trimmed.startsWith("<")) {
+    throw new Error(
+      "Server returned a web page instead of JSON. Use the API base only (e.g. https://api.restify.online), not the web app URL."
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid JSON from server.");
+  }
+  if (!resp.ok) throw new Error(data.error || data.message || "Request failed");
+  return data;
+}
+let _cloudUser = null;
+let _cloudToken = null;
+let _syncInProgress = false;
+let _lastSyncAt = 0;
+function isCloudLoggedIn() {
+  return !!_cloudToken;
+}
+function showAuthRequiredGate() {
+  document.body.classList.add("auth-required-active");
+}
+function hideAuthRequiredGate() {
+  document.body.classList.remove("auth-required-active");
+}
+function _cloudHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (_cloudToken) h["Authorization"] = "Bearer " + _cloudToken;
+  return h;
+}
+function _loadCloudSession() {
+  try {
+    const s = localStorage.getItem(LS_CLOUD_SESSION) || localStorage.getItem(LS_CLOUD_SESSION_LEGACY);
+    if (s) {
+      const parsed = JSON.parse(s);
+      _cloudUser = parsed.user;
+      _cloudToken = parsed.token;
+      _lastSyncAt = parsed.lastSyncAt || 0;
+    }
+  } catch {
+  }
+}
+function _saveCloudSession() {
+  if (_cloudUser && _cloudToken) {
+    localStorage.setItem(
+      LS_CLOUD_SESSION,
+      JSON.stringify({ user: _cloudUser, token: _cloudToken, lastSyncAt: _lastSyncAt })
+    );
+    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
+  } else {
+    localStorage.removeItem(LS_CLOUD_SESSION);
+    localStorage.removeItem(LS_CLOUD_SESSION_LEGACY);
+  }
+}
+async function cloudRegister(email, password, name2, otp) {
+  const resp = await fetch(cloudApiUrl("/api/auth/register"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name: name2, otp })
+  });
+  const data = await _cloudReadJson(resp);
+  _cloudUser = data.user;
+  _cloudToken = data.token;
+  _saveCloudSession();
+  return data;
+}
+async function cloudRequestRegisterOtp(email) {
+  const resp = await fetch(cloudApiUrl("/api/auth/register/request-otp"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+  return _cloudReadJson(resp);
+}
+async function cloudLogin(email, password) {
+  const resp = await fetch(cloudApiUrl("/api/auth/login"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await _cloudReadJson(resp);
+  _cloudUser = data.user;
+  _cloudToken = data.token;
+  _saveCloudSession();
+  return data;
+}
+async function cloudLogout(_opts) {
+  try {
+    await fetch(cloudApiUrl("/api/auth/logout"), { method: "POST", credentials: "include" });
+  } catch (_) {
+  }
+  _cloudUser = null;
+  _cloudToken = null;
+  _lastSyncAt = 0;
+  _saveCloudSession();
+  clearWorkspaceContextOnLogout();
+  location.reload();
+}
+async function cloudSync() {
+  if (!_cloudToken || _syncInProgress) return;
+  _syncInProgress = true;
+  renderCloudStatus();
+  try {
+    const colResp = await fetch(cloudApiUrl("/api/collections/sync"), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ collections: state.collections, lastSyncAt: _lastSyncAt })
+    });
+    if (colResp.status === 401) {
+      void cloudLogout({ sessionExpired: true });
+      throw new Error("Session expired");
+    }
+    const colData = await _cloudReadJson(colResp);
+    const envResp = await fetch(cloudApiUrl("/api/environments/sync"), {
+      method: "POST",
+      credentials: "include",
+      headers: _cloudHeaders(),
+      body: JSON.stringify({ environments: state.environments, globalVars: state.globalVars })
+    });
+    const envData = await _cloudReadJson(envResp);
+    if (colData.collections) {
+      state.collections.length = 0;
+      colData.collections.forEach((c) => {
+        delete c._syncedAt;
+        state.collections.push(c);
+      });
+    }
+    if (envData.environments) {
+      state.environments.length = 0;
+      envData.environments.forEach((e) => {
+        delete e._syncedAt;
+        state.environments.push(e);
+      });
+    }
+    if (envData.globalVars) {
+      state.globalVars.length = 0;
+      envData.globalVars.forEach((v) => state.globalVars.push(v));
+    }
+    _lastSyncAt = colData.syncedAt || Math.floor(Date.now() / 1e3);
+    _saveCloudSession();
+    saveState();
+    if (typeof window.renderSidebar === "function") window.renderSidebar();
+    if (typeof window.renderEnvSelector === "function") window.renderEnvSelector();
+    showNotif("Synced with cloud", "success");
+  } catch (err) {
+    showNotif("Sync error: " + err.message, "error");
+  } finally {
+    _syncInProgress = false;
+    renderCloudStatus();
+  }
+}
+function _renderSidebarCloudLink() {
+  const side = document.getElementById("sidebarCloudLink");
+  if (!side) return;
+  if (!_cloudToken) {
+    side.innerHTML = '<button type="button" class="sidebar-cloud-btn" onclick="openCloudModal()" title="Restify Cloud">☁ Cloud · Sign in</button>';
+    return;
+  }
+  const initial = (_cloudUser?.name || _cloudUser?.email || "?").charAt(0).toUpperCase();
+  side.innerHTML = `<button type="button" class="sidebar-cloud-btn sidebar-cloud-btn--in" onclick="openCloudModal()" title="${escHtml(_cloudUser?.email || "")}">☁ ${initial}</button>`;
+}
+async function cloudForgotPassword() {
+  const email = await appPrompt(
+    "Forgot password",
+    "If this email is registered, we will send you a reset link.",
+    { placeholder: "you@example.com", okLabel: "Send link" }
+  );
+  if (!email?.trim()) return;
+  try {
+    const resp = await fetch(cloudApiUrl("/api/auth/forgot-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() })
+    });
+    const data = await resp.json();
+    showNotif(data.message || "Check your email inbox.", "success");
+  } catch {
+    showNotif("Could not send request. Try again later.", "error");
+  }
+}
+async function maybeOpenPasswordResetFromUrl() {
+  if (typeof window === "undefined") return;
+  try {
+    const u = new URL(window.location.href);
+    const t2 = u.searchParams.get("resetPassword");
+    if (!t2) return;
+    u.searchParams.delete("resetPassword");
+    window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+    const p1 = await appPrompt("New password", "Choose a password (at least 6 characters).", {
+      inputType: "password",
+      okLabel: "Continue"
+    });
+    if (!p1 || p1.length < 6) {
+      showNotif("Password must be at least 6 characters", "error");
+      return;
+    }
+    const p2 = await appPrompt("Confirm password", "Enter the same password again.", {
+      inputType: "password",
+      okLabel: "Reset password"
+    });
+    if (!p2) return;
+    if (p1 !== p2) {
+      showNotif("Passwords do not match", "error");
+      return;
+    }
+    const resp = await fetch(cloudApiUrl("/api/auth/reset-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: t2, newPassword: p1 })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showNotif(data.error || "Reset failed", "error");
+      return;
+    }
+    showNotif("Password updated — you can sign in.", "success");
+    openCloudModal();
+  } catch {
+    showNotif("Reset failed", "error");
+  }
+}
+function renderCloudStatus() {
+  const el = document.getElementById("cloudStatusArea");
+  if (el) {
+    if (!_cloudToken) {
+      el.innerHTML = '<button class="cloud-login-btn" onclick="openCloudModal()" title="Restify Cloud">Sign in</button>';
+    } else {
+      const initial = (_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase();
+      el.innerHTML = `
+    <div class="cloud-status-pill" onclick="openCloudModal()" title="${escHtml(_cloudUser.email)}">
+      <span class="cloud-avatar">${initial}</span>
+      <span class="cloud-sync-icon ${_syncInProgress ? "spinning" : ""}">↻</span>
+    </div>
+  `;
+    }
+  }
+  _renderSidebarCloudLink();
+}
+function openCloudModal() {
+  if (_cloudToken) _renderCloudAccountView();
+  else _renderCloudLoginView();
+  document.getElementById("cloudModal")?.classList.add("open");
+}
+function closeCloudModal() {
+  document.getElementById("cloudModal")?.classList.remove("open");
+}
+function _renderCloudLoginView() {
+  const body = document.getElementById("cloudModalBody");
+  if (!body) return;
+  body.innerHTML = `
+    <div class="cloud-tabs">
+      <button class="cloud-tab-btn active" id="cloudTabLogin" onclick="_switchCloudTab('login')">Sign In</button>
+      <button class="cloud-tab-btn" id="cloudTabRegister" onclick="_switchCloudTab('register')">Create Account</button>
+    </div>
+    <div id="cloudTabContent">
+      <div class="cloud-form">
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="cloudEmail" placeholder="you@example.com" autocomplete="email"></div>
+        <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="cloudPassword" placeholder="••••••" autocomplete="current-password"></div>
+        <div style="text-align:right;margin:-6px 0 8px"><button type="button" class="btn-text" style="font-size:12px;padding:0" onclick="cloudForgotPassword()">Forgot password?</button></div>
+        <div id="cloudNameGroup" class="form-group" style="display:none"><label class="form-label">Name</label><input type="text" class="form-input" id="cloudName" placeholder="Your name" autocomplete="name"></div>
+        <div id="cloudOtpGroup" class="form-group" style="display:none">
+          <label class="form-label">Verification code</label>
+          <div class="otp-pad" id="cloudOtpPad">
+            <input class="otp-digit" id="cloudOtp0" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+            <input class="otp-digit" id="cloudOtp1" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp2" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp3" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp4" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp5" inputmode="numeric" maxlength="1">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:10px">
+            <span style="font-size:11px;color:var(--text-dim)">Send code first, then enter 6 digits.</span>
+            <button type="button" class="btn-text" id="cloudSendOtpBtn" onclick="_requestCloudRegisterOtp()">Send OTP</button>
+          </div>
+        </div>
+        <div id="cloudError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+        <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
+      </div>
+    </div>
+  `;
+  _setupCloudOtpPad();
+  setTimeout(() => document.getElementById("cloudEmail")?.focus(), 100);
+}
+let _cloudAuthMode = "login";
+function _cloudOtpInputs() {
+  return Array.from({ length: 6 }, (_, i) => document.getElementById(`cloudOtp${i}`)).filter(Boolean);
+}
+function _setupCloudOtpPad() {
+  const inputs = _cloudOtpInputs();
+  inputs.forEach((inp, idx) => {
+    inp.value = "";
+    inp.addEventListener("input", () => {
+      inp.value = (inp.value || "").replace(/\D/g, "").slice(0, 1);
+      if (inp.value && idx < inputs.length - 1) inputs[idx + 1]?.focus();
+    });
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" && !inp.value && idx > 0) inputs[idx - 1]?.focus();
+    });
+    inp.addEventListener("paste", (e) => {
+      const txt = (e.clipboardData?.getData("text") || "").replace(/\D/g, "").slice(0, 6);
+      if (!txt) return;
+      e.preventDefault();
+      txt.split("").forEach((ch, pos) => {
+        if (inputs[pos]) inputs[pos].value = ch;
+      });
+      inputs[Math.min(txt.length, inputs.length) - 1]?.focus();
+    });
+  });
+}
+function _readCloudOtpPad() {
+  return _cloudOtpInputs().map((i) => (i.value || "").trim()).join("");
+}
+function _switchCloudTab(mode) {
+  _cloudAuthMode = mode;
+  document.getElementById("cloudTabLogin")?.classList.toggle("active", mode === "login");
+  document.getElementById("cloudTabRegister")?.classList.toggle("active", mode === "register");
+  const nameGroup = document.getElementById("cloudNameGroup");
+  if (nameGroup) nameGroup.style.display = mode === "register" ? "block" : "none";
+  const otpGroup = document.getElementById("cloudOtpGroup");
+  if (otpGroup) otpGroup.style.display = mode === "register" ? "block" : "none";
+  const submitBtn = document.getElementById("cloudSubmitBtn");
+  if (submitBtn) submitBtn.textContent = mode === "login" ? "Sign In" : "Create Account";
+  const errEl = document.getElementById("cloudError");
+  if (errEl) errEl.style.display = "none";
+}
+async function _requestCloudRegisterOtp() {
+  const errEl = document.getElementById("cloudError");
+  const email = document.getElementById("cloudEmail")?.value.trim();
+  if (!email) {
+    errEl.textContent = "Enter email first";
+    errEl.style.display = "block";
+    return;
+  }
+  const sendBtn = document.getElementById("cloudSendOtpBtn");
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
+  }
+  try {
+    await cloudRequestRegisterOtp(email);
+    errEl.style.display = "none";
+    showNotif("OTP sent to your email", "success");
+    const first = document.getElementById("cloudOtp0");
+    first?.focus();
+  } catch (err) {
+    errEl.textContent = err.message || "Could not send OTP";
+    errEl.style.display = "block";
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send OTP";
+    }
+  }
+}
+async function _submitCloudAuth() {
+  const email = document.getElementById("cloudEmail").value.trim();
+  const password = document.getElementById("cloudPassword").value;
+  const nameEl = document.getElementById("cloudName");
+  const name2 = nameEl?.value?.trim() || "";
+  const errEl = document.getElementById("cloudError");
+  if (!email || !password) {
+    errEl.textContent = "Email and password are required";
+    errEl.style.display = "block";
+    return;
+  }
+  const btn = document.getElementById("cloudSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "Please wait...";
+  try {
+    if (_cloudAuthMode === "register") {
+      const otp = _readCloudOtpPad();
+      if (!/^\d{6}$/.test(otp)) {
+        errEl.textContent = "Enter the 6-digit OTP from your email";
+        errEl.style.display = "block";
+        return;
+      }
+      await cloudRegister(email, password, name2, otp);
+      clearLocalWorkspaceAndPersist();
+    } else {
+      await cloudLogin(email, password);
+    }
+    closeCloudModal();
+    renderCloudStatus();
+    hideAuthRequiredGate();
+    await window.bootstrapWorkspaceAfterLogin?.();
+    void cloudSync();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = _cloudAuthMode === "login" ? "Sign In" : "Create Account";
+  }
+}
+function _renderCloudAccountView() {
+  const body = document.getElementById("cloudModalBody");
+  if (!body) return;
+  body.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div class="cloud-avatar-large">${(_cloudUser.name || _cloudUser.email || "?").charAt(0).toUpperCase()}</div>
+      <div style="font-size:16px;font-weight:600;margin-top:8px">${escHtml(_cloudUser.name || "Restify User")}</div>
+      <div style="font-size:13px;color:var(--text-dim)">${escHtml(_cloudUser.email)}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn-primary" style="width:100%" onclick="cloudSync(); closeCloudModal();">↻ Sync Now</button>
+      <button class="btn-secondary" style="width:100%" onclick="closeCloudModal(); openTeamsModal();">👥 Teams</button>
+      <button class="btn-secondary" style="width:100%" onclick="_cloudAutoSync()">Enable Auto-Sync</button>
+      <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+      <button class="btn-secondary" style="width:100%;color:var(--red);border-color:var(--red)" onclick="cloudLogout(); closeCloudModal();">Sign Out</button>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text-dim);text-align:center">
+      Last synced: ${_lastSyncAt ? new Date(_lastSyncAt * 1e3).toLocaleString() : "Never"}
+    </div>
+  `;
+}
+let _autoSyncInterval = null;
+function _cloudAutoSync() {
+  if (_autoSyncInterval) {
+    clearInterval(_autoSyncInterval);
+    _autoSyncInterval = null;
+    showNotif("Auto-sync disabled", "info");
+    return;
+  }
+  _autoSyncInterval = setInterval(() => {
+    if (_cloudToken) cloudSync();
+  }, 6e4);
+  showNotif("Auto-sync enabled (every 60s)", "success");
+}
+_loadCloudSession();
+const PENDING_IMPORT_KEY = "restify_pending_import";
+function _publishApiRoot() {
+  if (typeof window.getRestifyApiBase === "function") {
+    const b = window.getRestifyApiBase();
+    if (b) return String(b).replace(/\/+$/, "");
+  }
+  return "https://api.restify.online";
+}
+function shareQuickUrl() {
+  if (typeof window.restifyApiUrl === "function") {
+    const u = window.restifyApiUrl("/api/share/quick");
+    if (/^https?:\/\//i.test(u)) return u;
+  }
+  return _publishApiRoot() + "/api/share/quick";
+}
+function apiSharedUrl(id) {
+  if (typeof window.restifyApiUrl === "function") {
+    const u = window.restifyApiUrl("/api/shared/" + encodeURIComponent(id));
+    if (/^https?:\/\//i.test(u)) return u;
+  }
+  return _publishApiRoot() + "/api/shared/" + encodeURIComponent(id);
+}
+async function shareCollection(colId) {
+  const col = findNodeInAll(colId);
+  if (!col) return;
+  const shareData = deepClone(col);
+  try {
+    const resp = await fetch(shareQuickUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ collection: shareData, name: col.name })
+    });
+    const text = await resp.text();
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith("<")) {
+      throw new Error(
+        "API returned a web page instead of JSON. On desktop, ensure the Restify API is running or reachable (default https://api.restify.online)."
+      );
+    }
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      throw new Error("Invalid response from server");
+    }
+    if (!resp.ok) throw new Error(result.error || "Server returned " + resp.status);
+    showShareResult(result, col.name);
+    showNotif("Published online — copy the documentation link to share", "success");
+  } catch (err) {
+    showNotif("Publish failed: " + err.message, "error");
+  }
+}
+function showShareResult(result, name2) {
+  const nameEl = document.getElementById("shareCollectionName");
+  const docUrlEl = document.getElementById("shareDocUrl");
+  const docLinkEl = document.getElementById("shareDocLink");
+  const shareModal = document.getElementById("shareModal");
+  if (nameEl) nameEl.textContent = name2;
+  if (docUrlEl) docUrlEl.value = result.docUrl;
+  if (docLinkEl) {
+    docLinkEl.href = result.docUrl;
+    docLinkEl.rel = "noopener noreferrer";
+    docLinkEl.onclick = (e) => {
+      e.preventDefault();
+      const u = (docUrlEl?.value || result.docUrl || "").trim();
+      if (!u) return;
+      const api = window.electronAPI;
+      if (api?.openExternal) {
+        void api.openExternal(u);
+      } else {
+        window.open(u, "_blank", "noopener,noreferrer");
+      }
+      closeShareModal();
+    };
+  }
+  shareModal?.classList.add("open");
+}
+function closeShareModal() {
+  document.getElementById("shareModal")?.classList.remove("open");
+}
+function copyShareUrl(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(() => showNotif("Link copied!", "success"));
+}
+function stashSharedImportParamIfNeeded() {
+  if (isCloudLoggedIn()) return;
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("import");
+  if (!id) return;
+  try {
+    sessionStorage.setItem(PENDING_IMPORT_KEY, id);
+    const u = new URL(window.location.href);
+    u.searchParams.delete("import");
+    window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+  } catch (_) {
+  }
+}
+async function checkAutoImport() {
+  const params = new URLSearchParams(window.location.search);
+  let importId = params.get("import");
+  if (!importId) {
+    try {
+      importId = sessionStorage.getItem(PENDING_IMPORT_KEY);
+    } catch {
+      return;
+    }
+    if (!importId) return;
+  }
+  try {
+    const resp = await fetch(apiSharedUrl(importId));
+    if (!resp.ok) throw new Error("Collection not found");
+    const data = await resp.json();
+    if (data.collection) {
+      const col = data.collection;
+      assignNewIds(col);
+      state.collections.push(col);
+      state.openFolders.add(col.id);
+      saveState();
+      if (typeof window.renderSidebar === "function") window.renderSidebar();
+      showNotif(`Imported "${col.name}"`, "success");
+      window.history.replaceState({}, "", "/");
+    }
+    try {
+      sessionStorage.removeItem(PENDING_IMPORT_KEY);
+    } catch (_) {
+    }
+  } catch (err) {
+    showNotif("Import failed: " + err.message, "error");
+  }
+}
+let _activeAbortController = null;
+let _requestElapsedTimer = null;
+function cancelRequest() {
+  if (_activeAbortController) {
+    _activeAbortController.abort();
+    _activeAbortController = null;
+  }
+}
+async function sendRequest() {
+  const methodSel = document.getElementById("methodSelect");
+  const urlInput = document.getElementById("urlInput");
+  let method = methodSel.value;
+  let url = urlInput.value.trim();
+  if (!url) {
+    showNotif("Please enter a URL", "error");
+    return;
+  }
+  if (!url.startsWith("http")) url = "https://" + url;
+  url = resolveVariables(url);
+  const params = getKvStore("params").filter((r) => r.enabled && r.key);
+  if (params.length) {
+    const qs = params.map((r) => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join("&");
+    url += (url.includes("?") ? "&" : "?") + qs;
+  }
+  const headers = {};
+  const tab = state.tabs.find((t2) => t2.id === state.activeTabId);
+  if (tab?.sourceId) {
+    const inherited = getInheritedHeaders(tab.sourceId);
+    Object.entries(inherited).forEach(([k, v]) => {
+      headers[k] = v.value;
+    });
+  }
+  getKvStore("headers").filter((r) => r.enabled && r.key).forEach((r) => {
+    headers[resolveVariables(r.key)] = resolveVariables(r.value);
+  });
+  let auth = getAuthState();
+  if (auth.type === "inherit" && tab?.sourceId) {
+    const inherited = getInheritedAuth(tab.sourceId);
+    if (inherited) auth = inherited.auth;
+  }
+  if (auth.type === "bearer") headers["Authorization"] = `Bearer ${resolveVariables(auth.token)}`;
+  else if (auth.type === "basic") headers["Authorization"] = "Basic " + btoa(`${resolveVariables(auth.username)}:${resolveVariables(auth.password)}`);
+  else if (auth.type === "apikey") headers[resolveVariables(auth.key)] = resolveVariables(auth.value);
+  else if (auth.type === "oauth2" && auth.token) headers["Authorization"] = `Bearer ${auth.token}`;
+  let body = null;
+  const bodyType = state.currentBodyType;
+  if (method !== "GET" && method !== "HEAD") {
+    if (bodyType === "json" || bodyType === "raw") {
+      body = resolveVariables(getBodyEditorText());
+      if (bodyType === "json" && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    } else if (bodyType === "graphql") {
+      const query = resolveVariables(getBodyEditorText());
+      const vars = document.getElementById("graphqlVarsTextarea")?.value || "{}";
+      try {
+        body = JSON.stringify({ query, variables: JSON.parse(resolveVariables(vars)) });
+      } catch {
+        body = JSON.stringify({ query, variables: {} });
+      }
+      headers["Content-Type"] = "application/json";
+    } else if (bodyType === "form") {
+      const fd = new FormData();
+      getKvStore("bodyForm").filter((r) => r.enabled && r.key).forEach((r) => {
+        if (r.type === "file" && r.file) fd.append(r.key, r.file);
+        else fd.append(resolveVariables(r.key), resolveVariables(r.value));
+      });
+      body = fd;
+    } else if (bodyType === "urlencoded") {
+      if (!headers["Content-Type"]) headers["Content-Type"] = "application/x-www-form-urlencoded";
+      body = getKvStore("bodyForm").filter((r) => r.enabled && r.key).map((r) => `${encodeURIComponent(resolveVariables(r.key))}=${encodeURIComponent(resolveVariables(r.value))}`).join("&");
+    } else if (bodyType === "binary") {
+      const fileInput = document.getElementById("binaryFileInput");
+      if (fileInput?.files?.[0]) body = fileInput.files[0];
+    }
+  }
+  let reqContext = { url, method, headers, body };
+  if (tab?.sourceId) {
+    const chain = getAncestorChain(tab.sourceId);
+    for (const ancestor of chain) {
+      if (ancestor.preRequestScript) {
+        try {
+          const r = runPreRequestScript(ancestor.preRequestScript, reqContext);
+          if (r) Object.assign(reqContext, r);
+        } catch (e) {
+          showNotif("Pre-request script error (" + ancestor.name + "): " + e.message, "error");
+          return;
+        }
+      }
+    }
+  }
+  const preScript = state.activeTabId ? state.tabData[state.activeTabId]?.preRequestScript : "";
+  if (preScript) {
+    try {
+      const r = runPreRequestScript(preScript, reqContext);
+      if (r) Object.assign(reqContext, r);
+    } catch (e) {
+      showNotif("Pre-request script error: " + e.message, "error");
+      return;
+    }
+  }
+  url = reqContext.url;
+  method = reqContext.method;
+  Object.assign(headers, reqContext.headers);
+  if (reqContext.body !== void 0) body = reqContext.body;
+  const sendBtn = document.getElementById("sendBtn");
+  sendBtn.innerHTML = '<span class="spinner"></span><span id="sendElapsed"></span>';
+  sendBtn.classList.add("loading");
+  sendBtn.onclick = cancelRequest;
+  const startTime = Date.now();
+  _requestElapsedTimer = setInterval(() => {
+    const el = document.getElementById("sendElapsed");
+    if (el) el.textContent = ((Date.now() - startTime) / 1e3).toFixed(1) + "s";
+  }, 100);
+  _activeAbortController = new AbortController();
+  const signal = _activeAbortController.signal;
+  try {
+    const opts = { method, headers, signal };
+    if (body) opts.body = body;
+    const response = await window.restifyFetch(url, opts);
+    const elapsed = Date.now() - startTime;
+    const respText = await response.text();
+    showResponse(response, respText, elapsed, url, method);
+    const respCtx = { status: response.status, statusText: response.statusText, body: respText, headers: Object.fromEntries(response.headers.entries()) };
+    let allTestResults = [];
+    if (tab?.sourceId) {
+      const chain = getAncestorChain(tab.sourceId);
+      for (const ancestor of chain) {
+        if (ancestor.testScript) {
+          try {
+            allTestResults = allTestResults.concat(runTestScript(ancestor.testScript, respCtx));
+          } catch (e) {
+            console.error("Test script error (" + ancestor.name + "):", e);
+          }
+        }
+      }
+    }
+    const testScript = state.activeTabId ? state.tabData[state.activeTabId]?.testScript : "";
+    if (testScript) {
+      try {
+        allTestResults = allTestResults.concat(runTestScript(testScript, respCtx));
+      } catch (e) {
+        console.error("Test script error:", e);
+      }
+    }
+    if (allTestResults.length) renderTestResults(allTestResults);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      showNotif("Request cancelled", "info");
+      showResponsePlaceholder();
+    } else showError(err.message);
+  } finally {
+    if (_requestElapsedTimer) {
+      clearInterval(_requestElapsedTimer);
+      _requestElapsedTimer = null;
+    }
+    _activeAbortController = null;
+    sendBtn.innerHTML = "&#9654; Send";
+    sendBtn.classList.remove("loading");
+    sendBtn.onclick = sendRequest;
+  }
+}
+function showResponse(response, text, elapsed, reqUrl, reqMethod) {
+  const statusBadge = document.getElementById("statusBadge");
+  const cls = response.status < 300 ? "2xx" : response.status < 400 ? "3xx" : response.status < 500 ? "4xx" : "5xx";
+  const statusHtml = `<span class="status-badge status-${cls}"><span class="status-dot"></span>${response.status} ${response.statusText}</span>`;
+  statusBadge.innerHTML = statusHtml;
+  const size = new Blob([text]).size;
+  const meta2 = `${elapsed}ms · ${formatBytes(size)}`;
+  const rm2 = document.getElementById("respMeta");
+  if (rm2) rm2.textContent = meta2;
+  ["copyRespBtn", "curlBtn", "codeGenBtn", "beautifyRespBtn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "inline-flex";
+  });
+  let bodyHtml = "";
+  const content2 = document.getElementById("responseBodyContent");
+  try {
+    const json2 = JSON.parse(text);
+    bodyHtml = syntaxHighlight(JSON.stringify(json2, null, 2));
+    content2.innerHTML = bodyHtml;
+  } catch {
+    if (text.trim().startsWith("<") && (text.includes("</") || text.includes("/>"))) {
+      bodyHtml = syntaxHighlightXml(text);
+      content2.innerHTML = bodyHtml;
+    } else {
+      content2.textContent = text;
+      bodyHtml = escHtml(text);
+    }
+  }
+  const ph = document.getElementById("responsePlaceholder");
+  if (ph) ph.style.display = "none";
+  content2.style.display = "block";
+  const raw = document.getElementById("responseBodyRaw");
+  if (raw) {
+    raw.style.display = "none";
+    raw.textContent = text;
+  }
+  const preview = document.getElementById("responseBodyPreview");
+  if (preview) preview.srcdoc = text.trim().startsWith("<") ? text : `<pre style="font-family:monospace;white-space:pre-wrap;padding:12px">${escHtml(text)}</pre>`;
+  switchResponseMode("pretty");
+  const tbody = document.getElementById("respHeadersBody");
+  tbody.innerHTML = "";
+  let headersHtml = "";
+  response.headers.forEach((val, name2) => {
+    const row = `<tr><td>${escHtml(name2)}</td><td>${escHtml(val)}</td></tr>`;
+    headersHtml += row;
+    tbody.innerHTML += row;
+  });
+  let cookiesHtml = "";
+  const cookieBody = document.getElementById("respCookiesBody");
+  cookieBody.innerHTML = "";
+  response.headers.forEach((val, name2) => {
+    if (name2.toLowerCase() === "set-cookie") {
+      const parts = val.split(";").map((s) => s.trim());
+      const [nameVal, ...attrs] = parts;
+      const [cName, cVal] = nameVal.split("=");
+      const row = `<tr><td>${escHtml(cName)}</td><td>${escHtml(cVal || "")}</td><td>${escHtml(attrs.join("; "))}</td></tr>`;
+      cookiesHtml += row;
+      cookieBody.innerHTML += row;
+    }
+  });
+  window._lastResponse = text;
+  addResponseSnapshot({
+    statusHtml,
+    meta: meta2,
+    bodyHtml,
+    bodyRaw: text,
+    headersHtml,
+    cookiesHtml,
+    statusCode: response.status,
+    label: `${reqMethod || "GET"} ${response.status} • ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`
+  }, true);
+  addToHistory({ method: reqMethod || "GET", url: reqUrl || "", status: response.status, time: elapsed, size });
+  saveState();
+}
+function showError(msg) {
+  const sb = document.getElementById("statusBadge");
+  sb.innerHTML = '<span class="status-badge status-4xx"><span class="status-dot"></span>Error</span>';
+  const rm2 = document.getElementById("respMeta");
+  if (rm2) rm2.textContent = "";
+  const ph = document.getElementById("responsePlaceholder");
+  if (ph) ph.style.display = "none";
+  const content2 = document.getElementById("responseBodyContent");
+  content2.style.display = "block";
+  content2.textContent = `Request failed
+
+${msg}
+
+If you see CORS errors, the server doesn't allow browser requests.
+The desktop app bypasses CORS restrictions.`;
+  const raw = document.getElementById("responseBodyRaw");
+  if (raw) raw.textContent = msg;
+  ["curlBtn", "codeGenBtn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "inline-flex";
+  });
+  window._lastResponse = msg;
+}
+function renderTestResults(results) {
+  const container = document.getElementById("testResultsContent");
+  if (!container || !results?.length) return;
+  container.innerHTML = "";
+  let passed = 0, failed = 0;
+  results.forEach((r) => {
+    if (r.passed) passed++;
+    else failed++;
+    const div = document.createElement("div");
+    div.className = "test-result " + (r.passed ? "test-pass" : "test-fail");
+    div.innerHTML = `<span class="test-icon">${r.passed ? "✓" : "✗"}</span> <span>${escHtml(r.name)}</span>${r.error ? `<span class="test-error">${escHtml(r.error)}</span>` : ""}`;
+    container.appendChild(div);
+  });
+  const summary = document.createElement("div");
+  summary.className = "test-summary";
+  summary.textContent = `${passed} passed, ${failed} failed`;
+  container.prepend(summary);
+  const badge = document.querySelector('.response-tab[data-tab="tests"] .tab-badge');
+  if (badge) {
+    badge.textContent = String(failed > 0 ? failed : passed);
+    badge.className = "tab-badge " + (failed > 0 ? "badge-fail" : "badge-pass");
   }
 }
 initConfigDomains();
@@ -29739,6 +29974,8 @@ Object.assign(window, {
   switchResponseMode,
   showResponsePlaceholder,
   restoreResponse,
+  saveCurrentResponseSnapshot,
+  selectSavedResponse,
   // Save Modal
   openSaveModal,
   closeSaveModal,
@@ -29799,6 +30036,7 @@ Object.assign(window, {
   closeCloudModal,
   _switchCloudTab,
   _submitCloudAuth,
+  _requestCloudRegisterOtp,
   _cloudAutoSync,
   cloudLogout,
   cloudForgotPassword,
@@ -29837,9 +30075,9 @@ Object.assign(window, {
   // State (for inline globalVars mutation in env editor)
   state
 });
-async function init() {
-  loadTheme();
-  await maybeOpenPasswordResetFromUrl();
+let _workspaceBootstrapped = false;
+async function bootstrapWorkspace() {
+  if (_workspaceBootstrapped) return;
   await maybeAcceptTeamInvite();
   await maybeAcceptWorkspaceInvite();
   void initWorkspaceBanner();
@@ -29902,6 +30140,7 @@ async function init() {
     });
   }
   document.addEventListener("keydown", (e) => {
+    if (!isCloudLoggedIn()) return;
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key === "n") {
       e.preventDefault();
@@ -29915,8 +30154,7 @@ async function init() {
       e.preventDefault();
       if (state.activeTabId) saveCurrentTabState();
       saveState({ forceDisk: true });
-      if (isCloudLoggedIn()) void cloudSync();
-      else showNotif("Saved locally", "success");
+      void cloudSync();
     }
     if (mod && e.key === "l") {
       e.preventDefault();
@@ -29982,6 +30220,21 @@ async function init() {
     saveState();
     renderSidebar();
   };
+  _workspaceBootstrapped = true;
+}
+window.bootstrapWorkspaceAfterLogin = async () => {
+  await bootstrapWorkspace();
+};
+async function init() {
+  loadTheme();
+  await maybeOpenPasswordResetFromUrl();
+  stashSharedImportParamIfNeeded();
+  if (!isCloudLoggedIn()) {
+    clearLocalWorkspaceAndPersist();
+    showAuthRequiredGate();
+    return;
+  }
+  await bootstrapWorkspace();
 }
 function setupElectronUpdateListener() {
   if (!window.electronAPI?.onUpdateStatus) return;

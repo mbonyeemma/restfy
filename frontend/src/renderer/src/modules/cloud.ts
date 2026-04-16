@@ -1,4 +1,5 @@
-import { state, saveState } from './state'
+import { state, saveState, clearLocalWorkspaceAndPersist } from './state'
+import { clearWorkspaceContextOnLogout } from './teams'
 import { escHtml, showNotif, appPrompt } from './utils'
 
 const CLOUD_DEFAULT = 'https://api.restify.online'
@@ -50,6 +51,14 @@ export function isCloudLoggedIn(): boolean {
   return !!_cloudToken
 }
 
+export function showAuthRequiredGate(): void {
+  document.body.classList.add('auth-required-active')
+}
+
+export function hideAuthRequiredGate(): void {
+  document.body.classList.remove('auth-required-active')
+}
+
 function _cloudHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (_cloudToken) h['Authorization'] = 'Bearer ' + _cloudToken
@@ -85,18 +94,28 @@ export function getCloudUser(): any {
   return _cloudUser
 }
 
-export async function cloudRegister(email: string, password: string, name: string): Promise<any> {
+export async function cloudRegister(email: string, password: string, name: string, otp: string): Promise<any> {
   const resp = await fetch(cloudApiUrl('/api/auth/register'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, name })
+    body: JSON.stringify({ email, password, name, otp })
   })
   const data = await _cloudReadJson(resp)
   _cloudUser = data.user
   _cloudToken = data.token
   _saveCloudSession()
   return data
+}
+
+export async function cloudRequestRegisterOtp(email: string): Promise<any> {
+  const resp = await fetch(cloudApiUrl('/api/auth/register/request-otp'), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  return _cloudReadJson(resp)
 }
 
 export async function cloudLogin(email: string, password: string): Promise<any> {
@@ -113,7 +132,7 @@ export async function cloudLogin(email: string, password: string): Promise<any> 
   return data
 }
 
-export async function cloudLogout(): Promise<void> {
+export async function cloudLogout(_opts?: { sessionExpired?: boolean }): Promise<void> {
   try {
     await fetch(cloudApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
   } catch (_) {}
@@ -121,10 +140,8 @@ export async function cloudLogout(): Promise<void> {
   _cloudToken = null
   _lastSyncAt = 0
   _saveCloudSession()
-  renderCloudStatus()
-  // Reset banner to "My Workspace" but keep it visible
-  const nameEl = document.getElementById('workspaceBannerNameText')
-  if (nameEl) nameEl.textContent = 'My Workspace'
+  clearWorkspaceContextOnLogout()
+  location.reload()
 }
 
 export async function cloudSync(): Promise<void> {
@@ -140,7 +157,7 @@ export async function cloudSync(): Promise<void> {
       body: JSON.stringify({ collections: state.collections, lastSyncAt: _lastSyncAt })
     })
     if (colResp.status === 401) {
-      void cloudLogout()
+      void cloudLogout({ sessionExpired: true })
       throw new Error('Session expired')
     }
     const colData = await _cloudReadJson(colResp)
@@ -304,15 +321,62 @@ function _renderCloudLoginView(): void {
         <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="cloudPassword" placeholder="••••••" autocomplete="current-password"></div>
         <div style="text-align:right;margin:-6px 0 8px"><button type="button" class="btn-text" style="font-size:12px;padding:0" onclick="cloudForgotPassword()">Forgot password?</button></div>
         <div id="cloudNameGroup" class="form-group" style="display:none"><label class="form-label">Name</label><input type="text" class="form-input" id="cloudName" placeholder="Your name" autocomplete="name"></div>
+        <div id="cloudOtpGroup" class="form-group" style="display:none">
+          <label class="form-label">Verification code</label>
+          <div class="otp-pad" id="cloudOtpPad">
+            <input class="otp-digit" id="cloudOtp0" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+            <input class="otp-digit" id="cloudOtp1" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp2" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp3" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp4" inputmode="numeric" maxlength="1">
+            <input class="otp-digit" id="cloudOtp5" inputmode="numeric" maxlength="1">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:10px">
+            <span style="font-size:11px;color:var(--text-dim)">Send code first, then enter 6 digits.</span>
+            <button type="button" class="btn-text" id="cloudSendOtpBtn" onclick="_requestCloudRegisterOtp()">Send OTP</button>
+          </div>
+        </div>
         <div id="cloudError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
         <button class="btn-primary" style="width:100%;padding:10px" id="cloudSubmitBtn" onclick="_submitCloudAuth()">Sign In</button>
       </div>
     </div>
   `
+  _setupCloudOtpPad()
   setTimeout(() => (document.getElementById('cloudEmail') as HTMLElement)?.focus(), 100)
 }
 
 let _cloudAuthMode = 'login'
+
+function _cloudOtpInputs(): HTMLInputElement[] {
+  return Array.from({ length: 6 }, (_, i) => document.getElementById(`cloudOtp${i}`) as HTMLInputElement).filter(Boolean)
+}
+
+function _setupCloudOtpPad(): void {
+  const inputs = _cloudOtpInputs()
+  inputs.forEach((inp, idx) => {
+    inp.value = ''
+    inp.addEventListener('input', () => {
+      inp.value = (inp.value || '').replace(/\D/g, '').slice(0, 1)
+      if (inp.value && idx < inputs.length - 1) inputs[idx + 1]?.focus()
+    })
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !inp.value && idx > 0) inputs[idx - 1]?.focus()
+    })
+    inp.addEventListener('paste', (e) => {
+      const txt = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6)
+      if (!txt) return
+      e.preventDefault()
+      txt.split('').forEach((ch, pos) => {
+        if (inputs[pos]) inputs[pos].value = ch
+      })
+      inputs[Math.min(txt.length, inputs.length) - 1]?.focus()
+    })
+  })
+}
+
+function _readCloudOtpPad(): string {
+  return _cloudOtpInputs().map(i => (i.value || '').trim()).join('')
+}
 
 export function _switchCloudTab(mode: string): void {
   _cloudAuthMode = mode
@@ -320,10 +384,42 @@ export function _switchCloudTab(mode: string): void {
   document.getElementById('cloudTabRegister')?.classList.toggle('active', mode === 'register')
   const nameGroup = document.getElementById('cloudNameGroup') as HTMLElement
   if (nameGroup) nameGroup.style.display = mode === 'register' ? 'block' : 'none'
+  const otpGroup = document.getElementById('cloudOtpGroup') as HTMLElement
+  if (otpGroup) otpGroup.style.display = mode === 'register' ? 'block' : 'none'
   const submitBtn = document.getElementById('cloudSubmitBtn') as HTMLButtonElement
   if (submitBtn) submitBtn.textContent = mode === 'login' ? 'Sign In' : 'Create Account'
   const errEl = document.getElementById('cloudError') as HTMLElement
   if (errEl) errEl.style.display = 'none'
+}
+
+export async function _requestCloudRegisterOtp(): Promise<void> {
+  const errEl = document.getElementById('cloudError') as HTMLElement
+  const email = (document.getElementById('cloudEmail') as HTMLInputElement)?.value.trim()
+  if (!email) {
+    errEl.textContent = 'Enter email first'
+    errEl.style.display = 'block'
+    return
+  }
+  const sendBtn = document.getElementById('cloudSendOtpBtn') as HTMLButtonElement | null
+  if (sendBtn) {
+    sendBtn.disabled = true
+    sendBtn.textContent = 'Sending...'
+  }
+  try {
+    await cloudRequestRegisterOtp(email)
+    errEl.style.display = 'none'
+    showNotif('OTP sent to your email', 'success')
+    const first = document.getElementById('cloudOtp0') as HTMLInputElement | null
+    first?.focus()
+  } catch (err: any) {
+    errEl.textContent = err.message || 'Could not send OTP'
+    errEl.style.display = 'block'
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false
+      sendBtn.textContent = 'Send OTP'
+    }
+  }
 }
 
 export async function _submitCloudAuth(): Promise<void> {
@@ -345,16 +441,22 @@ export async function _submitCloudAuth(): Promise<void> {
 
   try {
     if (_cloudAuthMode === 'register') {
-      await cloudRegister(email, password, name)
+      const otp = _readCloudOtpPad()
+      if (!/^\d{6}$/.test(otp)) {
+        errEl.textContent = 'Enter the 6-digit OTP from your email'
+        errEl.style.display = 'block'
+        return
+      }
+      await cloudRegister(email, password, name, otp)
+      clearLocalWorkspaceAndPersist()
     } else {
       await cloudLogin(email, password)
     }
     closeCloudModal()
     renderCloudStatus()
-    cloudSync()
-    if (typeof (window as any).initWorkspaceBanner === 'function') {
-      void (window as any).initWorkspaceBanner()
-    }
+    hideAuthRequiredGate()
+    await (window as any).bootstrapWorkspaceAfterLogin?.()
+    void cloudSync()
   } catch (err: any) {
     errEl.textContent = err.message
     errEl.style.display = 'block'

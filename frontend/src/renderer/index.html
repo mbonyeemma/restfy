@@ -789,6 +789,9 @@
   .status-5xx .status-dot { background: var(--red); }
   .resp-meta { font-size: 11px; color: var(--text-dim); margin-left: auto; font-family: 'JetBrains Mono', monospace; }
   .resp-actions { display: flex; gap: 4px; }
+  .resp-history-wrap { display: flex; align-items: center; gap: 6px; margin-right: 6px; }
+  .resp-history-select { min-width: 170px; max-width: 240px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-light); color: var(--text-secondary); font-size: 11px; font-family: 'Inter', sans-serif; }
+  .resp-history-select:focus { outline: none; border-color: var(--accent); }
   .resp-action-btn { padding: 3px 10px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--text-secondary); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.1s; }
   .resp-action-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -997,9 +1000,11 @@
   .tree-node.tree-drag-disabled .tree-drag-handle { cursor: default; opacity: 0.15; pointer-events: none; }
   .tree-node.dragging { opacity: 0.45; }
   .tree-node.tree-drop-target { position: relative; }
-  .tree-node.tree-drop-target::before { content: ''; position: absolute; left: 4px; right: 4px; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; }
+  .tree-node.tree-drop-target::before { content: ''; position: absolute; left: 4px; right: 4px; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; z-index: 2; }
   .tree-node.tree-drop-target.tree-drop-after::before { top: auto; bottom: 0; }
-  .tree-node.tree-drop-target:not(.tree-drop-after)::before { top: 0; bottom: auto; }
+  .tree-node.tree-drop-target:not(.tree-drop-after):not(.tree-drop-inside)::before { top: 0; bottom: auto; }
+  .tree-node.tree-drop-target.tree-drop-inside::before { display: none; }
+  .tree-node.tree-drop-target.tree-drop-inside { background: var(--accent-glow); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; border-radius: 4px; }
 
   /* Code gen modal */
   .codegen-langs { display: flex; gap: 2px; padding: 12px 20px; background: var(--bg-mid); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -1036,6 +1041,20 @@
   .cloud-tab-btn:hover { color: var(--text-primary); }
   .cloud-tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); }
   .cloud-form .form-group { margin-bottom: 12px; }
+  .otp-pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .otp-digit {
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    outline: none;
+  }
+  .otp-digit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
   /* ── Teams ── */
   .teams-list { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -1138,9 +1157,78 @@
   /* Web mode overrides */
   .web-mode .titlebar { -webkit-app-region: initial; }
   .web-mode .logo { margin-left: 8px !important; }
+
+  /* Sign-in gate (blocks app until Restify Cloud session exists) */
+  .auth-required-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 600;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-darkest);
+    flex-direction: column;
+    padding: 24px;
+  }
+  body.auth-required-active .auth-required-gate { display: flex !important; }
+  .auth-required-card {
+    max-width: 420px;
+    text-align: center;
+    position: relative;
+    padding: 8px 0 0;
+  }
+  .auth-required-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .auth-required-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+  .auth-required-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: 22px;
+  }
+  .auth-required-btn {
+    width: 100%;
+    max-width: 320px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .auth-required-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 14px;
+  }
+  .auth-required-theme {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+  }
 </style>
 </head>
 <body>
+
+<!-- Sign-in required (shown until Restify Cloud session exists) -->
+<div id="authRequiredGate" class="auth-required-gate" aria-modal="true" role="dialog" aria-labelledby="authRequiredTitle">
+  <div class="auth-required-card">
+    <button type="button" class="theme-toggle-btn auth-required-theme" onclick="toggleTheme()" title="Toggle theme">☀</button>
+    <div class="auth-required-logo">
+      <img class="logo-icon-img" src="assets/icon-mark.png" alt="" width="44" height="44">
+    </div>
+    <h1 id="authRequiredTitle" class="auth-required-title">Sign in to Restify</h1>
+    <p class="auth-required-desc">A Restify Cloud account is required to use the API client. Collections and environments sync to your account.</p>
+    <button type="button" class="btn-primary auth-required-btn" onclick="openCloudModal()">Sign in or create account</button>
+    <p class="auth-required-hint">Use the same account on web and desktop.</p>
+  </div>
+</div>
 
 <!-- Header suggestions datalist -->
 <datalist id="headerSuggestions">
@@ -1416,7 +1504,7 @@
             <button class="body-type-btn" data-bodytype="json" onclick="setBodyType('json')">JSON</button>
             <button class="body-type-btn" data-bodytype="form" onclick="setBodyType('form')">form-data</button>
             <button class="body-type-btn" data-bodytype="urlencoded" onclick="setBodyType('urlencoded')">x-www-form-urlencoded</button>
-            <button class="body-type-btn" data-bodytype="raw" onclick="setBodyType('raw')">raw</button>
+            <button class="body-type-btn" data-bodytype="raw" onclick="setBodyType('raw')" style="display:none">raw</button>
             <button class="body-type-btn" data-bodytype="graphql" onclick="setBodyType('graphql')">GraphQL</button>
             <button class="body-type-btn" data-bodytype="binary" onclick="setBodyType('binary')">binary</button>
             <button class="format-btn" id="formatJsonBtn" onclick="formatJson()">&#10024; Beautify</button>
@@ -1492,6 +1580,12 @@
           <span id="statusBadge"></span>
           <span class="resp-meta" id="respMeta"></span>
           <div class="resp-actions">
+            <div class="resp-history-wrap">
+              <select class="resp-history-select" id="responseSnapshotSelect" onchange="selectSavedResponse(this.value)">
+                <option value="">Latest response</option>
+              </select>
+              <button class="resp-action-btn" onclick="saveCurrentResponseSnapshot()" id="saveRespBtn">Save</button>
+            </div>
             <button class="resp-action-btn" onclick="beautifyResponse()" id="beautifyRespBtn" style="display:none">&#10024; Beautify</button>
             <button class="resp-action-btn" onclick="copyResponse()" id="copyRespBtn" style="display:none">Copy</button>
             <button class="resp-action-btn" onclick="generateCurl()" id="curlBtn" style="display:none">cURL</button>
@@ -1745,23 +1839,15 @@
     <div class="modal-body">
       <div style="margin-bottom:16px">
         <div style="font-size:14px;font-weight:600;margin-bottom:4px" id="shareCollectionName"></div>
-        <div style="font-size:12px;color:var(--text-secondary)">The docs page opens in the browser (no download). Share the links below.</div>
+        <div style="font-size:12px;color:var(--text-secondary)">The docs page opens in the browser (no download). Share the link below.</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Documentation Page</label>
+        <label class="form-label">Documentation page</label>
         <div style="display:flex;gap:6px">
           <input type="text" class="form-input" id="shareDocUrl" readonly style="font-family:'JetBrains Mono',monospace;font-size:12px">
           <button class="btn-primary" onclick="copyShareUrl('shareDocUrl')" style="white-space:nowrap">Copy</button>
         </div>
         <a id="shareDocLink" href="#" target="_blank" style="font-size:11px;display:inline-block;margin-top:4px">View documentation &rarr;</a>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Open in Restify link</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" class="form-input" id="shareImportUrl" readonly style="font-family:'JetBrains Mono',monospace;font-size:12px">
-          <button class="btn-primary" onclick="copyShareUrl('shareImportUrl')" style="white-space:nowrap">Copy</button>
-        </div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Anyone with this link can import the collection into Restify</div>
       </div>
     </div>
     <div class="modal-footer">

@@ -75,6 +75,15 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
 
+  CREATE TABLE IF NOT EXISTS registration_otp_tokens (
+    email       TEXT PRIMARY KEY COLLATE NOCASE,
+    code_hash   TEXT NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+  CREATE INDEX IF NOT EXISTS idx_registration_otp_expires ON registration_otp_tokens(expires_at);
+
   -- ── Teams & Collaboration ──────────────────────────────────
   CREATE TABLE IF NOT EXISTS teams (
     id          TEXT PRIMARY KEY,

@@ -1,6 +1,6 @@
 import { initConfigDomains } from './modules/config-domains'
 import { initApiBase } from './modules/api-base'
-import { state, loadState, saveState, makeCollection } from './modules/state'
+import { state, loadState, saveState, makeCollection, clearLocalWorkspaceAndPersist } from './modules/state'
 import { showNotif, appConfirm, appPrompt, _isMac, _modKey } from './modules/utils'
 import {
   newTab, setActiveTab, closeTab, togglePinTab, saveCurrentTabState, renderTabs,
@@ -13,7 +13,8 @@ import {
   setBodyType, formatJson, beautifyResponse, updateBodyHighlight, syncBodyScroll, updateBodySize,
   updateUrlHighlight, toggleTheme, loadTheme, switchReqTab, switchRespTab,
   showWorkspace, showEmpty, updateMethodColor, copyResponse, switchResponseMode,
-  showResponsePlaceholder, restoreResponse, openSaveModal, closeSaveModal, saveRequest,
+  showResponsePlaceholder, restoreResponse, saveCurrentResponseSnapshot, selectSavedResponse,
+  openSaveModal, closeSaveModal, saveRequest,
   openEnvManager, setEnvModalTab, clearActiveEnv, closeEnvManager, renderEnvManager,
   addGlobalVar, addEnvVar, deleteEnvVar, updateEnvVar, addEnvironmentFromInput,
   renameEnv, deleteEnv, setActiveEnv, saveEnvChanges, renderEnvSelector,
@@ -26,11 +27,12 @@ import {
   openCurlImport, exportCollectionAsPostman, generateCurl, openCodeGen,
   closeCodeGen, generateCodeSnippet, copyCodeGen, runCollection
 } from './modules/codegen'
-import { shareCollection, closeShareModal, copyShareUrl, checkAutoImport } from './modules/share'
+import { shareCollection, closeShareModal, copyShareUrl, checkAutoImport, stashSharedImportParamIfNeeded } from './modules/share'
 import {
   cloudSync, isCloudLoggedIn, renderCloudStatus, openCloudModal, closeCloudModal,
-  _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
-  cloudForgotPassword, maybeOpenPasswordResetFromUrl
+  _switchCloudTab, _submitCloudAuth, _requestCloudRegisterOtp, _cloudAutoSync, cloudLogout,
+  cloudForgotPassword, maybeOpenPasswordResetFromUrl,
+  showAuthRequiredGate
 } from './modules/cloud'
 import { sendRequest, cancelRequest } from './modules/http'
 import {
@@ -94,7 +96,7 @@ Object.assign(window, {
   switchReqTab, switchRespTab, showWorkspace, showEmpty,
   // Workspace
   updateMethodColor, copyResponse, switchResponseMode,
-  showResponsePlaceholder, restoreResponse,
+  showResponsePlaceholder, restoreResponse, saveCurrentResponseSnapshot, selectSavedResponse,
   // Save Modal
   openSaveModal, closeSaveModal, saveRequest,
   // Environments
@@ -115,7 +117,7 @@ Object.assign(window, {
   shareCollection, closeShareModal, copyShareUrl,
   // Cloud
   cloudSync, renderCloudStatus, openCloudModal, closeCloudModal,
-  _switchCloudTab, _submitCloudAuth, _cloudAutoSync, cloudLogout,
+  _switchCloudTab, _submitCloudAuth, _requestCloudRegisterOtp, _cloudAutoSync, cloudLogout,
   cloudForgotPassword,
   // Teams & workspaces
   openTeamsModal, closeTeamsModal, createWorkspace, createTeam, openTeamDetail,
@@ -135,9 +137,10 @@ Object.assign(window, {
 
 // ── Main init ─────────────────────────────────────────────────────
 
-async function init() {
-  loadTheme()
-  await maybeOpenPasswordResetFromUrl()
+let _workspaceBootstrapped = false
+
+async function bootstrapWorkspace(): Promise<void> {
+  if (_workspaceBootstrapped) return
   await maybeAcceptTeamInvite()
   await maybeAcceptWorkspaceInvite()
   void initWorkspaceBanner()
@@ -205,6 +208,7 @@ async function init() {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (!isCloudLoggedIn()) return
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 'n') { e.preventDefault(); newTab() }
     if (mod && e.key === 'w') { e.preventDefault(); if (state.activeTabId) closeTab(state.activeTabId) }
@@ -212,8 +216,7 @@ async function init() {
       e.preventDefault()
       if (state.activeTabId) saveCurrentTabState()
       saveState({ forceDisk: true })
-      if (isCloudLoggedIn()) void cloudSync()
-      else showNotif('Saved locally', 'success')
+      void cloudSync()
     }
     if (mod && e.key === 'l') { e.preventDefault(); (document.getElementById('urlInput') as HTMLInputElement)?.focus() }
     if (mod && e.key === 'Enter') { e.preventDefault(); sendRequest() }
@@ -273,6 +276,24 @@ async function init() {
     state.openFolders.add(col.id)
     saveState(); renderSidebar()
   }
+
+  _workspaceBootstrapped = true
+}
+
+;(window as any).bootstrapWorkspaceAfterLogin = async () => {
+  await bootstrapWorkspace()
+}
+
+async function init() {
+  loadTheme()
+  await maybeOpenPasswordResetFromUrl()
+  stashSharedImportParamIfNeeded()
+  if (!isCloudLoggedIn()) {
+    clearLocalWorkspaceAndPersist()
+    showAuthRequiredGate()
+    return
+  }
+  await bootstrapWorkspace()
 }
 
 function setupElectronUpdateListener() {

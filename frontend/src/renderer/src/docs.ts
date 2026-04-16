@@ -79,7 +79,7 @@ function showError(msg: string): void {
   const content = document.getElementById('docsContent')
   if (content) content.innerHTML = `
     <div class="error-wrap">
-      <div class="error-icon">📄</div>
+      <div class="error-icon"></div>
       <div class="error-title">${esc(msg)}</div>
       <div class="error-sub">This link may have expired or the collection is private.</div>
     </div>`
@@ -120,7 +120,7 @@ function buildSidebar(col: any): void {
         const count = countAll(child)
         html += `<div class="sidebar-folder" onclick="toggleFolder('${esc(child.id)}')" id="sfh-${esc(child.id)}">
           <span class="sidebar-folder-arrow open" id="sfa-${esc(child.id)}">▶</span>
-          <span>📁 ${esc(child.name)}</span>
+          <span>${esc(child.name)}</span>
           <span class="sidebar-folder-count">${count}</span>
         </div>
         <div id="sf-${esc(child.id)}">`
@@ -138,6 +138,11 @@ function buildSidebar(col: any): void {
   walk(col.children || [], 0)
   nav.innerHTML = html
   _sidebarItems = Array.from(nav.querySelectorAll('.sidebar-item'))
+}
+
+;(window as any).toggleFolderSection = function (fid: string) {
+  const el = document.getElementById('fs-' + fid)
+  if (el) el.classList.toggle('open')
 }
 
 ;(window as any).toggleFolder = function (fid: string) {

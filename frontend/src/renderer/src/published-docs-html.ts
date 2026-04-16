@@ -51,13 +51,13 @@ export function allRequests(node: any, acc: any[] = []): any[] {
 
 export function renderAuth(auth: any): string {
   if (!auth?.type || auth.type === 'none') return ''
-  if (auth.type === 'bearer') return `<div class="auth-badge">🔒 <strong>Bearer Token</strong></div>`
+  if (auth.type === 'bearer') return `<div class="auth-badge"><strong>Bearer Token</strong></div>`
   if (auth.type === 'basic')
-    return `<div class="auth-badge">🔒 <strong>Basic Auth</strong>${auth.username ? ` — ${esc(auth.username)}` : ''}</div>`
+    return `<div class="auth-badge"><strong>Basic Auth</strong>${auth.username ? ` — ${esc(auth.username)}` : ''}</div>`
   if (auth.type === 'apikey')
-    return `<div class="auth-badge">🔑 <strong>API Key</strong>${auth.key ? ` — ${esc(auth.key)} in ${esc(auth.in || 'header')}` : ''}</div>`
-  if (auth.type === 'oauth2') return `<div class="auth-badge">🔐 <strong>OAuth 2.0</strong></div>`
-  return `<div class="auth-badge">🔒 <strong>${esc(auth.type)}</strong></div>`
+    return `<div class="auth-badge"><strong>API Key</strong>${auth.key ? ` — ${esc(auth.key)} in ${esc(auth.in || 'header')}` : ''}</div>`
+  if (auth.type === 'oauth2') return `<div class="auth-badge"><strong>OAuth 2.0</strong></div>`
+  return `<div class="auth-badge"><strong>${esc(auth.type)}</strong></div>`
 }
 
 function langLabel(lang: string): string {
@@ -335,15 +335,19 @@ export function buildDocsContentHtml(col: any, meta: PublishedDocsMeta): string 
     ;(children || []).forEach(child => {
       if (child.type === 'folder') {
         const auth = child.auth?.type && child.auth.type !== 'none' && child.auth.type !== 'inherit'
+        const fid = child.id
         const fd = child.description ? `<div class="folder-desc">${esc(child.description)}</div>` : ''
-        html += `<div class="folder-section">
-          <div class="folder-header">
-            <span class="folder-icon">📁</span>
+        const childCount = (child.children || []).filter((c: any) => c.type === 'request').length
+        html += `<div class="folder-section open" id="fs-${esc(fid)}">
+          <div class="folder-header" onclick="toggleFolderSection('${esc(fid)}')">
+            <span class="folder-toggle"></span>
             <span class="folder-name">${esc(child.name)}</span>
+            <span class="folder-count">${childCount}</span>
             ${auth ? `<span class="folder-auth-badge">${esc(child.auth.type)}</span>` : ''}
-          </div>${fd}`
+          </div>
+          <div class="folder-body">${fd}`
         walkContent(child.children)
-        html += `</div>`
+        html += `</div></div>`
       } else if (child.type === 'request') {
         html += renderEndpoint(child)
       }
@@ -352,7 +356,7 @@ export function buildDocsContentHtml(col: any, meta: PublishedDocsMeta): string 
   walkContent(col.children || [])
 
   if (reqs.length === 0) {
-    html += `<div class="error-wrap"><div class="error-icon">📭</div><div class="error-title">No endpoints</div><div class="error-sub">This collection has no requests yet.</div></div>`
+    html += `<div class="error-wrap"><div class="error-title">No endpoints</div><div class="error-sub">This collection has no requests yet.</div></div>`
   }
 
   return html

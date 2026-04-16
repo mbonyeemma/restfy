@@ -188,6 +188,33 @@ export async function sendPasswordResetEmail(
   });
 }
 
+export async function sendSignupOtpEmail(to: string, otpCode: string): Promise<void> {
+  const html = layoutEmail({
+    title: "Your Restify verification code",
+    preheader: "Use this 6-digit code to finish creating your Restify account.",
+    bodyHtml: `
+      <p style="margin:0 0 16px;">Use this one-time verification code to complete your account creation:</p>
+      <div style="margin:16px 0 18px;padding:14px 16px;border:1px solid #e9e9ec;border-radius:10px;background:#fafafb;text-align:center;">
+        <span style="font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-size:30px;letter-spacing:8px;font-weight:700;color:${TEXT};">${escapeHtml(
+          otpCode
+        )}</span>
+      </div>
+      <p style="margin:0 0 6px;font-size:14px;color:${MUTED};">
+        This code expires in <strong>10 minutes</strong>.
+      </p>
+      <p style="margin:0;font-size:13px;color:${MUTED};">
+        If you did not request this, you can safely ignore this email.
+      </p>
+    `,
+  });
+  await sendTransactional({
+    to,
+    subject: "Restify verification code",
+    html,
+    logLabel: "signup otp",
+  });
+}
+
 export async function sendTeamInviteEmail(
   to: string,
   inviterName: string,

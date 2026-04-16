@@ -1,4 +1,4 @@
-import { e as esc, c as countAll, b as buildDocsContentHtml } from "./published-docs-html-Dy1vaC6o.js";
+import { i as esc, d as syntaxHighlight, j as countAll, b as buildDocsContentHtml } from "./published-docs-html-Cm_jmT7Y.js";
 (function initConfigDomains() {
   if (typeof window === "undefined" || !window.location) return;
   const h = String(window.location.hostname || "").toLowerCase();
@@ -25,6 +25,18 @@ import { e as esc, c as countAll, b as buildDocsContentHtml } from "./published-
   };
   window.restifyFetch = (url, opts) => fetch(url, opts);
 })();
+function formatMaybeJson(raw) {
+  const text = String(raw || "");
+  const trimmed = text.trim();
+  if (!trimmed) return { html: esc(text), isJson: false };
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return { html: esc(text), isJson: false };
+  try {
+    const pretty = JSON.stringify(JSON.parse(trimmed), null, 2);
+    return { html: syntaxHighlight(pretty), isJson: true };
+  } catch {
+    return { html: esc(text), isJson: false };
+  }
+}
 function getCollectionId() {
   const path = window.location.pathname || "";
   const qs = new URLSearchParams(window.location.search);
@@ -56,7 +68,7 @@ function showError(msg) {
   const content = document.getElementById("docsContent");
   if (content) content.innerHTML = `
     <div class="error-wrap">
-      <div class="error-icon">📄</div>
+      <div class="error-icon"></div>
       <div class="error-title">${esc(msg)}</div>
       <div class="error-sub">This link may have expired or the collection is private.</div>
     </div>`;
@@ -91,7 +103,7 @@ function buildSidebar(col) {
         const count = countAll(child);
         html += `<div class="sidebar-folder" onclick="toggleFolder('${esc(child.id)}')" id="sfh-${esc(child.id)}">
           <span class="sidebar-folder-arrow open" id="sfa-${esc(child.id)}">▶</span>
-          <span>📁 ${esc(child.name)}</span>
+          <span>${esc(child.name)}</span>
           <span class="sidebar-folder-count">${count}</span>
         </div>
         <div id="sf-${esc(child.id)}">`;
@@ -110,6 +122,10 @@ function buildSidebar(col) {
   nav.innerHTML = html;
   _sidebarItems = Array.from(nav.querySelectorAll(".sidebar-item"));
 }
+window.toggleFolderSection = function(fid) {
+  const el = document.getElementById("fs-" + fid);
+  if (el) el.classList.toggle("open");
+};
 window.toggleFolder = function(fid) {
   const el = document.getElementById("sf-" + fid);
   const arrow = document.getElementById("sfa-" + fid);
@@ -209,11 +225,7 @@ window.sendTryIt = async function(epId, method, _origUrl) {
     const resp = await fetch(url, opts);
     const elapsed = Math.round(performance.now() - start);
     const text = await resp.text();
-    let display = text;
-    try {
-      display = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-    }
+    const formatted = formatMaybeJson(text);
     const statusClass = resp.status < 300 ? "s2xx" : resp.status < 500 ? "s4xx" : "s5xx";
     resultDiv.innerHTML = `<div class="try-it-response">
       <div class="try-it-resp-header">
@@ -221,7 +233,7 @@ window.sendTryIt = async function(epId, method, _origUrl) {
         <span class="try-it-resp-time">${elapsed}ms</span>
         <button class="copy-btn" style="margin-left:auto" onclick="copyInline(this,document.getElementById('tryit-resp-body-${esc(epId)}').textContent)">Copy</button>
       </div>
-      <div class="try-it-resp-body" id="tryit-resp-body-${esc(epId)}">${esc(display)}</div>
+      <div class="try-it-resp-body${formatted.isJson ? " json-highlighted" : ""}" id="tryit-resp-body-${esc(epId)}">${formatted.html}</div>
     </div>`;
   } catch (err) {
     resultDiv.innerHTML = `<div style="color:var(--red);font-size:12px;padding:8px">Error: ${esc(err.message)}</div>`;

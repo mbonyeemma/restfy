@@ -47,6 +47,11 @@ function formatMaybeJson(raw) {
   }
 }
 
+window.toggleFolderSection = function (fid) {
+  var el = document.getElementById('fs-' + fid)
+  if (el) el.classList.toggle('open')
+}
+
 window.switchCodeTab = function (epId, lang) {
   const tabs = document.getElementById('ct-' + epId)
   if (!tabs) return

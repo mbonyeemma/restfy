@@ -95,6 +95,9 @@ export interface TabData {
   auth: Auth
   preRequestScript: string
   testScript: string
+  response?: any
+  responses?: any[]
+  activeResponseId?: string
   pinned?: boolean
   dirty?: boolean
 }
